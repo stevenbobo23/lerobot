@@ -72,6 +72,9 @@ class SO100Leader(Teleoperator):
 
         self.bus.connect()
         if not self.is_calibrated and calibrate:
+            logger.info(
+                "Mismatch between calibration values in the motor and the calibration file or no calibration file found"
+            )
             self.calibrate()
 
         self.configure()
@@ -82,6 +85,16 @@ class SO100Leader(Teleoperator):
         return self.bus.is_calibrated
 
     def calibrate(self) -> None:
+        if self.calibration:
+            # Calibration file exists, ask user whether to use it or run new calibration
+            user_input = input(
+                f"Press ENTER to use provided calibration file associated with the id {self.id}, or type 'c' and press ENTER to run calibration: "
+            )
+            if user_input.strip().lower() != "c":
+                logger.info(f"Writing calibration file associated with the id {self.id} to the motors")
+                self.bus.write_calibration(self.calibration)
+                return
+
         logger.info(f"\nRunning calibration of {self}")
         self.bus.disable_torque()
         for motor in self.bus.motors:
@@ -90,15 +103,17 @@ class SO100Leader(Teleoperator):
         input(f"Move {self} to the middle of its range of motion and press ENTER....")
         homing_offsets = self.bus.set_half_turn_homings()
 
-        full_turn_motor = "wrist_roll"
-        unknown_range_motors = [motor for motor in self.bus.motors if motor != full_turn_motor]
+        # Only wheels are considered full turn motors, wrist_roll should be calibrated
+        full_turn_motors = []
+        unknown_range_motors = [motor for motor in self.bus.motors if motor not in full_turn_motors]
         print(
-            f"Move all joints except '{full_turn_motor}' sequentially through their "
+            f"Move all joints sequentially through their "
             "entire ranges of motion.\nRecording positions. Press ENTER to stop..."
         )
         range_mins, range_maxes = self.bus.record_ranges_of_motion(unknown_range_motors)
-        range_mins[full_turn_motor] = 0
-        range_maxes[full_turn_motor] = 4095
+        for name in full_turn_motors:
+            range_mins[name] = 0
+            range_maxes[name] = 4095
 
         self.calibration = {}
         for motor, m in self.bus.motors.items():

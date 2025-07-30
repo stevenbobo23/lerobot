@@ -23,7 +23,7 @@ import platform
 import time
 from pathlib import Path
 from threading import Event, Lock, Thread
-from typing import Any, Dict, List
+from typing import Any
 
 # Fix MSMF hardware transform compatibility for Windows before importing cv2
 if platform.system() == "Windows" and "OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS" not in os.environ:
@@ -245,7 +245,7 @@ class OpenCVCamera(Camera):
             )
 
     @staticmethod
-    def find_cameras() -> List[Dict[str, Any]]:
+    def find_cameras() -> list[dict[str, Any]]:
         """
         Detects available OpenCV cameras connected to the system.
 
@@ -368,7 +368,7 @@ class OpenCVCamera(Camera):
         if requested_color_mode == ColorMode.RGB:
             processed_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        if self.rotation in [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE]:
+        if self.rotation in [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE, cv2.ROTATE_180]:
             processed_image = cv2.rotate(processed_image, self.rotation)
 
         return processed_image
