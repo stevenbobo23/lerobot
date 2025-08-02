@@ -20,7 +20,7 @@ OUTPUT_DEVICE_INDEX = 1  # 根据arecord -l输出，使用card 1设备
 
 # 音频参数
 SAMPLE_RATE = 48000
-CHANNELS = 2
+CHANNELS = 1
 FORMAT = pyaudio.paInt16
 CHUNK = 2048
 BYTES_PER_SAMPLE = 2  # 16位音频
