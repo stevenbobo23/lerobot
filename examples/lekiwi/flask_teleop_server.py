@@ -219,8 +219,8 @@ def connect():
     """连接机器人"""
     data = request.get_json()
     remote_ip = data.get('remote_ip', '192.168.101.33')
-    # arm_port = data.get('arm_port', '/dev/ttyACM0')
-    arm_port = data.get('arm_port', '/dev/tty.usbmodem58FA0963611')
+    arm_port = data.get('arm_port', '/dev/ttyACM0')
+    # arm_port = data.get('arm_port', '/dev/tty.usbmodem58FA0963611')
     
     success = init_robot(remote_ip, arm_port)
     
