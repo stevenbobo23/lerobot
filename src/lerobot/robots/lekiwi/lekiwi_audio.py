@@ -15,7 +15,7 @@ SERVER_URL = "ws://192.168.101.68:7777"  # 修改为实际服务器地址
 DEVICE_ID = str(uuid.uuid4())[:8]
 
 # 音频设备配置
-INPUT_DEVICE_INDEX = 4   # T1 Webcam (card 1) 用于录音
+INPUT_DEVICE_INDEX = 2   # T1 Webcam (card 1) 用于录音
 OUTPUT_DEVICE_INDEX = 1  # 根据arecord -l输出，使用card 1设备
 
 # 音频参数
