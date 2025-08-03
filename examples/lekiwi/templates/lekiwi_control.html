@@ -99,6 +99,16 @@
                 width: 66.666667%;
             }
         }
+        /* 为所有设备统一按钮样式 */
+        .control-btn {
+            padding: 12px 4px;
+            font-size: 13px;
+            min-height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
     </style>
 </head>
 <body class="bg-gray-100 h-screen overflow-hidden font-sans">
@@ -196,13 +206,13 @@
             <!-- 方向控制 -->
             <div class="mb-4">
                 <div class="control-grid">
-                    <button id="rotate_left" class="control-btn bg-yellow-500 text-white rounded font-medium hover:bg-yellow-600 md:hidden">
+                    <button id="rotate_left" class="control-btn bg-yellow-500 text-white rounded font-medium hover:bg-yellow-600">
                         左旋转 (H)
                     </button>
                     <button id="forward" class="control-btn bg-blue-500 text-white rounded font-medium hover:bg-blue-600">
                         前进 (W)
                     </button>
-                    <button id="rotate_right" class="control-btn bg-yellow-500 text-white rounded font-medium hover:bg-yellow-600 md:hidden">
+                    <button id="rotate_right" class="control-btn bg-yellow-500 text-white rounded font-medium hover:bg-yellow-600">
                         右旋转 (J)
                     </button>
                     
@@ -225,13 +235,13 @@
             </div>
 
             <!-- 旋转控制 -->
-            <div class="mb-4 md:block hidden">
+            <div class="mb-4 hidden">
                 <h2 class="text-sm font-semibold text-gray-700 mb-2">旋转控制</h2>
                 <div class="flex space-x-1">
-                    <button id="rotate_left" class="control-btn flex-1 bg-yellow-500 text-white py-2 px-3 rounded font-medium hover:bg-yellow-600 text-sm">
+                    <button id="rotate_left_extra" class="control-btn flex-1 bg-yellow-500 text-white py-2 px-3 rounded font-medium hover:bg-yellow-600 text-sm">
                         左旋转 (H)
                     </button>
-                    <button id="rotate_right" class="control-btn flex-1 bg-yellow-500 text-white py-2 px-3 rounded font-medium hover:bg-yellow-600 text-sm">
+                    <button id="rotate_right_extra" class="control-btn flex-1 bg-yellow-500 text-white py-2 px-3 rounded font-medium hover:bg-yellow-600 text-sm">
                         右旋转 (J)
                     </button>
                 </div>

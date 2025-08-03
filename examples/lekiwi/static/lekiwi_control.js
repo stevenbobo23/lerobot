@@ -246,6 +246,10 @@ Object.entries(keys).forEach(([key, buttonId]) => {
     }
 });
 
+// 为额外的旋转按钮设置控制
+setupButtonControl('rotate_left_extra', 'h');
+setupButtonControl('rotate_right_extra', 'j');
+
 // 停止按钮 - 点击立即停止
 document.getElementById('stop').addEventListener('click', () => {
     if (!isConnected) return;
