@@ -8,6 +8,7 @@ import json
 import logging
 import threading
 import time
+import os
 from typing import Dict, Any, Optional
 import cv2
 import numpy as np
@@ -148,6 +149,8 @@ def video_stream_thread():
                         latest_frame = cv2.rotate(latest_frame, cv2.ROTATE_90_CLOCKWISE)
                         # 转换颜色空间：BGR -> RGB
                         latest_frame = cv2.cvtColor(latest_frame, cv2.COLOR_BGR2RGB)
+                        # 优化：降低分辨率以减少网络传输数据量
+                        latest_frame = cv2.resize(latest_frame, (320, 240))  # 从默认大小降低到320x240
                     # print(f"获取到手腕视频帧，形状: {latest_frame.shape}")
                 else:
                     print("警告: 观察数据中没有wrist视频帧")
@@ -157,7 +160,7 @@ def video_stream_thread():
                 with frame_lock:
                     latest_frame = None
                 
-            time.sleep(1/30)  # 30 FPS
+            time.sleep(1/15)  # 降低帧率从30FPS到15FPS以减少网络负载
             
         except Exception as e:
             print(f"视频流错误: {e}")
@@ -313,8 +316,10 @@ if __name__ == '__main__':
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.ERROR)
     
-    print("启动LeKiwi Flask遥操作服务器...")
-    print("请在浏览器中访问: http://localhost:5555")
+    # 只在主进程中打印启动信息，避免debug模式下的重复输出
+    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+        print("启动LeKiwi Flask遥操作服务器...")
+        print("请在浏览器中访问: http://localhost:5555")
     
     # 启动视频流线程（在服务器启动时就运行）
     threading.Thread(target=video_stream_thread, daemon=True).start()

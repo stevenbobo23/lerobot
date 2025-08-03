@@ -2,13 +2,14 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>LeKiwi 遥操作控制台</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .control-btn {
             transition: all 0.2s ease-in-out;
             user-select: none;
+            touch-action: manipulation;
         }
         .control-btn:active {
             transform: scale(0.95);
@@ -48,12 +49,62 @@
             backdrop-filter: blur(10px);
             background-color: rgba(0, 0, 0, 0.8);
         }
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+            .control-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+                margin-bottom: 10px;
+            }
+            .control-btn {
+                padding: 15px 5px;
+                font-size: 14px;
+                min-height: 50px;
+            }
+            .speed-control-btn {
+                padding: 8px 2px;
+                min-height: 36px;
+                font-size: 13px;
+                box-shadow: none;
+                border-radius: 4px;
+            }
+            .main-container {
+                flex-direction: column;
+            }
+            .control-panel {
+                width: 100%;
+                max-height: 50vh;
+                overflow-y: auto;
+            }
+            .video-panel {
+                width: 100%;
+                height: 50vh;
+            }
+        }
+        @media (min-width: 769px) {
+            .control-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px;
+                margin-bottom: 10px;
+            }
+            .main-container {
+                flex-direction: row;
+            }
+            .control-panel {
+                width: 33.333333%;
+            }
+            .video-panel {
+                width: 66.666667%;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100 h-screen overflow-hidden font-sans">
     <!-- 连接模态框 -->
     <div id="connectionModal" class="connection-modal fixed inset-0 z-50 flex items-center justify-center">
-        <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
+        <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
             <div class="text-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800 mb-2">LeKiwi 连接设置</h2>
                 <p class="text-gray-600">请输入机器人连接参数</p>
@@ -103,9 +154,9 @@
         </div>
     </div>
 
-    <div class="flex h-full">
+    <div class="main-container flex h-full">
         <!-- 左侧控制面板 -->
-        <div class="w-1/3 bg-white shadow-lg p-4 flex flex-col">
+        <div class="control-panel bg-white shadow-lg p-4 flex flex-col">
             <!-- 头部状态栏 -->
             <div class="mb-4">
                 <div class="flex items-center justify-between mb-3">
@@ -127,16 +178,16 @@
             </div>
 
             <!-- 速度控制 -->
-            <div class="mb-4">
+            <div class="mb-4 md:block hidden">
                 <h2 class="text-sm font-semibold text-gray-700 mb-2">速度控制</h2>
                 <div class="flex space-x-1">
-                    <button id="speed_down" class="control-btn flex-1 bg-blue-500 text-white py-1 px-2 rounded font-medium hover:bg-blue-600 text-sm">
+                    <button id="speed_down" class="control-btn speed-control-btn flex-1 bg-blue-500 text-white py-2 px-2 rounded font-medium hover:bg-blue-600 text-sm">
                         减速 (F)
                     </button>
-                    <span id="speed-display" class="flex-1 bg-gray-200 py-1 px-2 rounded text-center text-sm">
+                    <span id="speed-display" class="flex-1 bg-gray-200 py-2 px-2 rounded text-center text-sm flex items-center justify-center">
                         中速
                     </span>
-                    <button id="speed_up" class="control-btn flex-1 bg-blue-500 text-white py-1 px-2 rounded font-medium hover:bg-blue-600 text-sm">
+                    <button id="speed_up" class="control-btn speed-control-btn flex-1 bg-blue-500 text-white py-2 px-2 rounded font-medium hover:bg-blue-600 text-sm">
                         加速 (R)
                     </button>
                 </div>
@@ -144,26 +195,29 @@
 
             <!-- 方向控制 -->
             <div class="mb-4">
-                <h2 class="text-sm font-semibold text-gray-700 mb-2">方向控制</h2>
-                <div class="grid grid-cols-3 gap-1">
-                    <div></div>
-                    <button id="forward" class="control-btn bg-blue-500 text-white py-2 px-3 rounded font-medium hover:bg-blue-600 text-sm">
+                <div class="control-grid">
+                    <button id="rotate_left" class="control-btn bg-yellow-500 text-white rounded font-medium hover:bg-yellow-600 md:hidden">
+                        左旋转 (H)
+                    </button>
+                    <button id="forward" class="control-btn bg-blue-500 text-white rounded font-medium hover:bg-blue-600">
                         前进 (W)
                     </button>
-                    <div></div>
+                    <button id="rotate_right" class="control-btn bg-yellow-500 text-white rounded font-medium hover:bg-yellow-600 md:hidden">
+                        右旋转 (J)
+                    </button>
                     
-                    <button id="left" class="control-btn bg-blue-500 text-white py-2 px-3 rounded font-medium hover:bg-blue-600 text-sm">
+                    <button id="left" class="control-btn bg-blue-500 text-white rounded font-medium hover:bg-blue-600">
                         左转 (A)
                     </button>
-                    <button id="stop" class="control-btn bg-gray-500 text-white py-2 px-3 rounded font-medium hover:bg-gray-600 text-sm">
+                    <button id="stop" class="control-btn bg-gray-500 text-white rounded font-medium hover:bg-gray-600">
                         停止 (空格)
                     </button>
-                    <button id="right" class="control-btn bg-blue-500 text-white py-2 px-3 rounded font-medium hover:bg-blue-600 text-sm">
+                    <button id="right" class="control-btn bg-blue-500 text-white rounded font-medium hover:bg-blue-600">
                         右转 (D)
                     </button>
                     
                     <div></div>
-                    <button id="backward" class="control-btn bg-blue-500 text-white py-2 px-3 rounded font-medium hover:bg-blue-600 text-sm">
+                    <button id="backward" class="control-btn bg-blue-500 text-white rounded font-medium hover:bg-blue-600">
                         后退 (S)
                     </button>
                     <div></div>
@@ -171,13 +225,13 @@
             </div>
 
             <!-- 旋转控制 -->
-            <div class="mb-4">
+            <div class="mb-4 md:block hidden">
                 <h2 class="text-sm font-semibold text-gray-700 mb-2">旋转控制</h2>
                 <div class="flex space-x-1">
-                    <button id="rotate_left" class="control-btn flex-1 bg-blue-500 text-white py-2 px-3 rounded font-medium hover:bg-blue-600 text-sm">
+                    <button id="rotate_left" class="control-btn flex-1 bg-yellow-500 text-white py-2 px-3 rounded font-medium hover:bg-yellow-600 text-sm">
                         左旋转 (H)
                     </button>
-                    <button id="rotate_right" class="control-btn flex-1 bg-blue-500 text-white py-2 px-3 rounded font-medium hover:bg-blue-600 text-sm">
+                    <button id="rotate_right" class="control-btn flex-1 bg-yellow-500 text-white py-2 px-3 rounded font-medium hover:bg-yellow-600 text-sm">
                         右旋转 (J)
                     </button>
                 </div>
@@ -198,10 +252,10 @@
                 </div>
                 
                 <div class="flex space-x-1">
-                    <button id="togglePlay" disabled class="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white py-1 px-2 rounded text-xs">
+                    <button id="togglePlay" disabled class="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white py-2 px-2 rounded text-xs">
                         播放声音
                     </button>
-                    <button id="toggleCall" disabled class="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white py-1 px-2 rounded text-xs">
+                    <button id="toggleCall" disabled class="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white py-2 px-2 rounded text-xs">
                         点击通话
                     </button>
                 </div>
@@ -215,7 +269,7 @@
         </div>
 
         <!-- 右侧视频显示 -->
-        <div class="flex-1 bg-black flex items-center justify-center p-4">
+        <div class="video-panel bg-black flex items-center justify-center p-4">
             <div class="video-container w-full h-full flex items-center justify-center relative">
                 <img id="video-stream" src="/video_feed" alt="视频流" 
                      class="max-w-full max-h-full object-contain rounded-lg">

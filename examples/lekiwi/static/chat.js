@@ -39,12 +39,18 @@ const chat = {
     // 初始化
     init() {
         // 初始化WebSocket连接
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        let wsUrl;
         const host = window.location.hostname;
-        // const port = window.location.port ? `:${window.location.port}` : '';
-        const port =  ':7777';
-
-        const wsUrl = `${protocol}//${host}${port}`;
+        if (host === 'local.mycodebro.cn') {
+            // 使用特定的WebSocket服务器
+            wsUrl = 'wss://wws.mycodebro.cn/';
+        } else {
+            // 使用默认的本地WebSocket服务器
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            // const port = window.location.port ? `:${window.location.port}` : '';
+            const port = ':7777';
+            wsUrl = `${protocol}//${host}${port}`;
+        }
         
         this.state.socket = new WebSocket(wsUrl, ['binary']);
         

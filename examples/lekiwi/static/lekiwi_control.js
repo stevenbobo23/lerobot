@@ -173,61 +173,80 @@ function setupButtonControl(buttonId, key) {
     const button = document.getElementById(buttonId);
     if (!button) return;
 
+    // 鼠标事件
     button.addEventListener('mousedown', () => {
         if (!isConnected) return;
         console.log('鼠标按下:', buttonId, key);
+        pressedKeys.clear(); // 清除之前按下的键
         pressedKeys.add(key);
+        // 移除所有按钮的active状态
+        activeButtons.forEach(id => {
+            document.getElementById(id)?.classList.remove('active');
+        });
+        activeButtons.clear();
+        // 添加当前按钮的active状态
         button.classList.add('active');
         activeButtons.add(buttonId);
         sendAction();
     });
 
-    button.addEventListener('mouseup', () => {
+    const stopMovement = () => {
         if (!isConnected) return;
-        console.log('鼠标释放:', buttonId, key);
-        pressedKeys.delete(key);
-        button.classList.remove('active');
-        activeButtons.delete(buttonId);
-        sendAction();
-    });
+        console.log('停止运动');
+        pressedKeys.clear();
+        activeButtons.forEach(id => {
+            document.getElementById(id)?.classList.remove('active');
+        });
+        activeButtons.clear();
+        sendStopAction();
+    };
 
-    button.addEventListener('mouseleave', () => {
-        if (!isConnected) return;
-        console.log('鼠标离开:', buttonId, key);
-        pressedKeys.delete(key);
-        button.classList.remove('active');
-        activeButtons.delete(buttonId);
-        sendAction();
-    });
+    button.addEventListener('mouseup', stopMovement);
+    button.addEventListener('mouseleave', stopMovement);
 
     // 触摸事件
     button.addEventListener('touchstart', (e) => {
         e.preventDefault();
         if (!isConnected) return;
         console.log('触摸开始:', buttonId, key);
+        pressedKeys.clear(); // 清除之前按下的键
         pressedKeys.add(key);
+        // 移除所有按钮的active状态
+        activeButtons.forEach(id => {
+            document.getElementById(id)?.classList.remove('active');
+        });
+        activeButtons.clear();
+        // 添加当前按钮的active状态
         button.classList.add('active');
         activeButtons.add(buttonId);
         sendAction();
     });
 
-    button.addEventListener('touchend', (e) => {
+    const stopTouchMovement = (e) => {
         e.preventDefault();
         if (!isConnected) return;
         console.log('触摸结束:', buttonId, key);
-        pressedKeys.delete(key);
-        button.classList.remove('active');
-        activeButtons.delete(buttonId);
-        sendAction();
-    });
+        pressedKeys.clear();
+        activeButtons.forEach(id => {
+            document.getElementById(id)?.classList.remove('active');
+        });
+        activeButtons.clear();
+        sendStopAction();
+    };
+
+    button.addEventListener('touchend', stopTouchMovement);
+    button.addEventListener('touchcancel', stopTouchMovement);
 }
 
 // 设置所有按钮控制
 Object.entries(keys).forEach(([key, buttonId]) => {
-    setupButtonControl(buttonId, key);
+    // 只为方向控制按钮设置按住运动的功能，排除速度控制和停止按钮
+    if (['w', 's', 'a', 'd', 'h', 'j'].includes(key)) {
+        setupButtonControl(buttonId, key);
+    }
 });
 
-// 停止按钮
+// 停止按钮 - 点击立即停止
 document.getElementById('stop').addEventListener('click', () => {
     if (!isConnected) return;
     console.log('停止按钮被点击');
@@ -236,23 +255,24 @@ document.getElementById('stop').addEventListener('click', () => {
         document.getElementById(id)?.classList.remove('active');
     });
     activeButtons.clear();
-    
-    // 发送stop动作
-    const action = {
-        keys: ['stop']
-    };
-    
-    console.log('发送停止动作:', action.keys);
-    fetch('/send_action', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(action)
-    }).catch(error => {
-        console.error('发送停止动作错误:', error);
-    });
+    sendStopAction();
 });
+
+// 发送停止动作到服务器
+async function sendStopAction() {
+    console.log('发送停止动作');
+    try {
+        await fetch('/send_action', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ keys: ['stop'] })
+        });
+    } catch (error) {
+        console.error('发送停止动作错误:', error);
+    }
+}
 
 // 发送动作到服务器
 async function sendAction() {
@@ -288,24 +308,31 @@ async function updateStatus() {
         const response = await fetch('/get_status');
         const data = await response.json();
         
-        document.getElementById('speed-display').textContent = data.speed_level;
-        document.getElementById('x-vel').textContent = data.x_vel.toFixed(2) + ' m/s';
-        document.getElementById('y-vel').textContent = data.y_vel.toFixed(2) + ' m/s';
-        document.getElementById('theta-vel').textContent = data.theta_vel.toFixed(2) + ' deg/s';
+        const speedDisplay = document.getElementById('speed-display');
+        const xVel = document.getElementById('x-vel');
+        const yVel = document.getElementById('y-vel');
+        const thetaVel = document.getElementById('theta-vel');
+        
+        if (speedDisplay) speedDisplay.textContent = data.speed_level;
+        if (xVel) xVel.textContent = data.x_vel.toFixed(2) + ' m/s';
+        if (yVel) yVel.textContent = data.y_vel.toFixed(2) + ' m/s';
+        if (thetaVel) thetaVel.textContent = data.theta_vel.toFixed(2) + ' deg/s';
         
         // 更新连接状态
         const wasConnected = isConnected;
         if (data.robot_connected && data.arm_connected) {
             if (!isConnected) {
                 isConnected = true;
-                document.getElementById('disconnectBtn').classList.remove('hidden');
+                const disconnectBtn = document.getElementById('disconnectBtn');
+                if (disconnectBtn) disconnectBtn.classList.remove('hidden');
                 updateStatusIndicators('connected');
                 console.log('连接状态: 已连接');
             }
         } else {
             if (isConnected) {
                 isConnected = false;
-                document.getElementById('disconnectBtn').classList.add('hidden');
+                const disconnectBtn = document.getElementById('disconnectBtn');
+                if (disconnectBtn) disconnectBtn.classList.add('hidden');
                 updateStatusIndicators('disconnected');
                 console.log('连接状态: 已断开');
             }
