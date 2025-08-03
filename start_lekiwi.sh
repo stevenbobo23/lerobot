@@ -2,7 +2,7 @@
 
 # LeKiwi 启动脚本
 # 用于启动 LeKiwi 机器人主机
-
+conda activate lerobot
 # 获取脚本所在目录
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 

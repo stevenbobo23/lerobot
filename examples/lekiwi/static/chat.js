@@ -3,8 +3,8 @@ const chat = {
     // DOM元素
     els: {
         deviceList: null,
-        startCall: null,
-        stopCall: null,
+        togglePlay: null,
+        toggleCall: null,
         remoteAudio: null,
         debugInfo: null,
         micWarning: null,
@@ -23,7 +23,8 @@ const chat = {
         selectedDevice: null,
         audioContext: null,
         localStream: null,
-        isCalling: false,
+        isPlaying: false,
+        isRecording: false,
         micPermissionGranted: false,
         audioBufferQueue: [],
         gainNode: null,
@@ -49,8 +50,8 @@ const chat = {
         
         // 绑定DOM元素
         this.els.deviceList = document.getElementById('deviceList');
-        this.els.startCall = document.getElementById('startCall');
-        this.els.stopCall = document.getElementById('stopCall');
+        this.els.togglePlay = document.getElementById('togglePlay');
+        this.els.toggleCall = document.getElementById('toggleCall');
         this.els.remoteAudio = document.getElementById('remoteAudio');
         this.els.debugInfo = document.getElementById('debugInfo');
         this.els.micWarning = document.getElementById('micPermissionWarning');
@@ -96,17 +97,20 @@ const chat = {
         };
         
         // 按钮事件
-        if (this.els.startCall) {
-            this.els.startCall.onclick = () => this.call.start();
+        if (this.els.togglePlay) {
+            this.els.togglePlay.onclick = () => this.play.toggle();
         }
-        if (this.els.stopCall) {
-            this.els.stopCall.onclick = () => this.call.stop();
+        if (this.els.toggleCall) {
+            this.els.toggleCall.onclick = () => this.record.toggle();
         }
         
-        // 页面卸载时停止通话
+        // 页面卸载时停止播放和录制
         window.addEventListener('beforeunload', () => {
-            if (this.state.isCalling) {
-                this.call.stop();
+            if (this.state.isPlaying) {
+                this.play.stop();
+            }
+            if (this.state.isRecording) {
+                this.record.stop();
             }
         });
     },
@@ -265,12 +269,21 @@ const chat = {
                 return;
             }
             
-            deviceList.forEach(deviceId => {
+            deviceList.forEach((device, index) => {
+                // 处理设备可能是对象的情况
+                const deviceId = typeof device === 'object' && device !== null ? device.id : device;
+                const isActive = typeof device === 'object' && device !== null ? device.active : false;
+                
                 const li = document.createElement('li');
                 li.className = 'p-1 hover:bg-gray-100 cursor-pointer transition duration-150 device-item text-xs';
-                li.textContent = deviceId;
+                li.textContent = deviceId + (isActive ? ' (通话中)' : '');
                 li.onclick = () => chat.devices.select(deviceId, li);
                 chat.els.deviceList.appendChild(li);
+                
+                // 自动选择最新出现的设备（第一个设备）
+                if (index === 0 && !chat.state.selectedDevice) {
+                    chat.devices.select(deviceId, li);
+                }
             });
         },
         
@@ -283,16 +296,80 @@ const chat = {
             
             element.classList.add('bg-blue-100', 'font-bold');
             
-            if (chat.els.startCall) {
-                chat.els.startCall.disabled = false;
+            if (chat.els.togglePlay) {
+                chat.els.togglePlay.disabled = false;
+            }
+            if (chat.els.toggleCall) {
+                chat.els.toggleCall.disabled = false;
             }
             
             chat.utils.log('已选择设备: ' + deviceId);
         }
     },
     
-    // 通话控制
-    call: {
+    // 播放控制
+    play: {
+        start() {
+            if (!chat.state.selectedDevice) {
+                chat.utils.log('未选择设备');
+                return;
+            }
+            
+            chat.utils.sendMessage(JSON.stringify({
+                type: 'startlistening',
+                targetDevice: chat.state.selectedDevice
+            }));
+            
+            chat.state.isPlaying = true;
+            if (chat.els.togglePlay) {
+                chat.els.togglePlay.textContent = '停止播放';
+                chat.els.togglePlay.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                chat.els.togglePlay.classList.add('bg-red-500', 'hover:bg-red-600');
+            }
+            chat.utils.log('开始播放Pi的声音');
+        },
+        
+        stop() {
+            chat.utils.sendMessage(JSON.stringify({
+                type: 'stoplistening',
+                targetDevice: chat.state.selectedDevice
+            }));
+            
+            chat.state.isPlaying = false;
+            if (chat.els.togglePlay) {
+                chat.els.togglePlay.textContent = '播放声音';
+                chat.els.togglePlay.classList.remove('bg-red-500', 'hover:bg-red-600');
+                chat.els.togglePlay.classList.add('bg-blue-500', 'hover:bg-blue-600');
+            }
+            
+            // 清空音频缓冲区
+            chat.state.audioBufferQueue = [];
+            chat.state.isAudioPlaying = false;
+            
+            // 清理播放相关的资源
+            if (chat.state.gainNode) {
+                try {
+                    chat.state.gainNode.disconnect();
+                    chat.state.gainNode = null;
+                } catch (err) {
+                    console.error('断开增益节点失败: ' + err);
+                }
+            }
+            
+            chat.utils.log('停止播放Pi的声音');
+        },
+        
+        toggle() {
+            if (chat.state.isPlaying) {
+                this.stop();
+            } else {
+                this.start();
+            }
+        }
+    },
+    
+    // 录制控制
+    record: {
         async start() {
             if (!chat.state.selectedDevice) {
                 chat.utils.log('未选择设备');
@@ -300,7 +377,7 @@ const chat = {
             }
             
             if (!chat.state.micPermissionGranted) {
-                chat.utils.log('麦克风权限未授予，尝试重新获取');
+                chat.utils.log('麦克风权限未授予，没有授予麦克风权限');
                 await chat.permissions.requestMicrophone();
                 
                 if (!chat.state.micPermissionGranted) {
@@ -315,14 +392,6 @@ const chat = {
                 
                 if (!chat.utils.sendMessage(JSON.stringify({
                     type: 'startCall',
-                    targetDevice: chat.state.selectedDevice
-                }))) {
-                    chat.utils.log('WebSocket未连接，无法发送开始通话消息');
-                    return;
-                }
-                
-                if (!chat.utils.sendMessage(JSON.stringify({
-                    type: 'startRecording',
                     targetDevice: chat.state.selectedDevice
                 }))) {
                     chat.utils.log('WebSocket未连接，无法发送开始录音消息');
@@ -346,12 +415,12 @@ const chat = {
                 chat.state.counters.send = 0;
                 chat.state.counters.receive = 0;
                 
-                // 创建音频处理节点
+                // 创建音频处理节点，使用更大的缓冲区以降低发送频率
                 const source = chat.state.audioContext.createMediaStreamSource(chat.state.localStream);
-                const processor = chat.state.audioContext.createScriptProcessor(1024, 1, 1);
+                const processor = chat.state.audioContext.createScriptProcessor(4096, 1, 1);
                 
                 processor.onaudioprocess = function(e) {
-                    if (!chat.state.isCalling) return;
+                    if (!chat.state.isRecording) return;
                     
                     const inputData = e.inputBuffer.getChannelData(0);
                     const pcmData = new Int16Array(inputData.length);
@@ -363,7 +432,7 @@ const chat = {
                     
                     if (chat.utils.sendMessage(pcmData.buffer)) {
                         chat.state.counters.send++;
-                        if (chat.state.counters.send % 100 === 0) {
+                        if (chat.state.counters.send % 10 === 0) {  // 更频繁地显示日志
                             chat.utils.log('音频发送统计 - 总计发送: ' + chat.state.counters.send + ' 个包');
                         }
                     }
@@ -372,20 +441,18 @@ const chat = {
                 source.connect(processor);
                 processor.connect(chat.state.audioContext.destination);
                 
-                chat.state.isCalling = true;
-                
-                if (chat.els.startCall) {
-                    chat.els.startCall.disabled = true;
-                }
-                if (chat.els.stopCall) {
-                    chat.els.stopCall.disabled = false;
+                chat.state.isRecording = true;
+                if (chat.els.toggleCall) {
+                    chat.els.toggleCall.textContent = '结束通话';
+                    chat.els.toggleCall.classList.remove('bg-green-500', 'hover:bg-green-600');
+                    chat.els.toggleCall.classList.add('bg-red-500', 'hover:bg-red-600');
                 }
                 
-                chat.utils.log('开始通话与设备: ' + chat.state.selectedDevice);
+                chat.utils.log('开始录制并发送给设备: ' + chat.state.selectedDevice);
             } catch (error) {
-                chat.utils.log('初始化音频通话失败: ' + error.message);
+                chat.utils.log('初始化音频录制失败: ' + error.message);
                 
-                let errorMessage = '无法开始通话，请检查以下事项：\n\n';
+                let errorMessage = '无法开始录制，请检查以下事项：\n\n';
                 if (error.name === 'NotAllowedError') {
                     errorMessage += '1. 您拒绝了麦克风访问权限，请刷新页面并允许访问\n';
                 } else if (error.name === 'NotFoundError') {
@@ -409,16 +476,13 @@ const chat = {
                 chat.utils.log('本地音频流已停止');
             }
             
-            chat.state.isCalling = false;
-            chat.state.selectedDevice = null;
-            
-            if (chat.els.startCall) {
-                chat.els.startCall.disabled = true;
+            // 只重置与通话相关的状态和按钮
+            chat.state.isRecording = false;
+            if (chat.els.toggleCall) {
+                chat.els.toggleCall.textContent = '点击通话';
+                chat.els.toggleCall.classList.remove('bg-red-500', 'hover:bg-red-600');
+                chat.els.toggleCall.classList.add('bg-green-500', 'hover:bg-green-600');
             }
-            if (chat.els.stopCall) {
-                chat.els.stopCall.disabled = true;
-            }
-            
             chat.utils.log('停止通话');
             
             // 发送停止通话消息
@@ -426,19 +490,15 @@ const chat = {
                 type: 'stopCall'
             }));
             
-            // 清除设备选择样式
-            document.querySelectorAll('.device-item').forEach(item => {
-                item.classList.remove('bg-blue-100', 'font-bold');
-            });
-            
             // 清空音频缓冲区
             chat.state.audioBufferQueue = [];
             chat.state.counters.send = 0;
             chat.state.counters.receive = 0;
             chat.state.isAudioPlaying = false;
             
-            // 关闭音频上下文
-            if (chat.state.audioContext) {
+            // 清理通话相关的音频资源
+            // 只有在没有播放功能在使用时才关闭音频上下文
+            if (!chat.state.isPlaying && chat.state.audioContext) {
                 chat.state.audioContext.close().then(() => {
                     chat.state.audioContext = null;
                     chat.state.gainNode = null;
@@ -446,6 +506,16 @@ const chat = {
                 }).catch(err => {
                     chat.utils.log('关闭音频上下文失败: ' + err);
                 });
+            }
+            
+            chat.utils.log('停止通话');
+        },
+        
+        toggle() {
+            if (chat.state.isRecording) {
+                this.stop();
+            } else {
+                this.start();
             }
         }
     },
