@@ -33,15 +33,51 @@ playback_stream = None
 received_audio_counter = 0
 sent_audio_counter = 0
 is_recording = False  # 录音状态标志
+is_in_call_mode = False  # 是否处于通话模式（只发送不播放）
+
+def on_message(ws, message):
+    global received_audio_counter, is_recording, is_in_call_mode
+    
+    # 处理文本消息（控制信号）
+    if isinstance(message, str):
+        try:
+            data = json.loads(message)
+            if data.get('type') == 'startlistening' :
+                is_recording = True
+                print(f"[INFO] 收到开始录音指令，开始录音 - {time.strftime('%H:%M:%S')}")
+            elif data.get('type') == 'stoplistening' :
+                is_recording = False
+                print(f"[INFO] 收到停止录音指令，停止录音 - {time.strftime('%H:%M:%S')}")
+            elif data.get('type') == 'startCall':
+                is_in_call_mode = True  
+                print("开始通话")
+            elif data.get('type') == 'stopCall':
+                is_recording = False
+                is_in_call_mode = False
+                print("停止通话")
+        except json.JSONDecodeError:
+            pass
+    
+    elif isinstance(message, bytes):
+        # 这是音频数据，尝试播放（仅在监听模式下）
+        received_audio_counter += 1
+        if received_audio_counter % 100 == 0:
+            print(f"已接收音频数据包: {received_audio_counter}")
+        # 只有在监听模式下才播放音频（startlistening模式）
+        if is_recording or is_in_call_mode:
+            play_audio(message)
 
 def send_audio(data):
     global sent_audio_counter
     # 仅在录音状态下发送音频数据
     if is_recording and ws.sock and ws.sock.connected:
-        ws.send(data, opcode=websocket.ABNF.OPCODE_BINARY)
-        sent_audio_counter += 1
-        if sent_audio_counter % 100 == 0:
-            print(f"已发送音频数据包: {sent_audio_counter}")
+        try:
+            ws.send(data, opcode=websocket.ABNF.OPCODE_BINARY)
+            sent_audio_counter += 1
+            if sent_audio_counter % 100 == 0:
+                print(f"已发送音频数据包: {sent_audio_counter} (大小: {len(data)}字节)")
+        except Exception as e:
+            print(f"发送音频数据时出错: {e}")
 
 def play_audio(data):
     global playback_stream
@@ -96,34 +132,6 @@ def play_audio(data):
             except:
                 pass
             playback_stream = None
-
-def on_message(ws, message):
-    global received_audio_counter, is_recording
-    
-    # 处理文本消息（控制信号）
-    if isinstance(message, str):
-        try:
-            data = json.loads(message)
-            if data.get('type') == 'callStarted' and data.get('action') == 'startRecording':
-                is_recording = True
-                print(f"[INFO] 收到开始录音指令，开始录音 - {time.strftime('%H:%M:%S')}")
-            elif data.get('type') == 'callStopped' and data.get('action') == 'stopRecording':
-                is_recording = False
-                print(f"[INFO] 收到停止录音指令，停止录音 - {time.strftime('%H:%M:%S')}")
-            elif data.get('type') == 'startCall':
-                print("开始通话")
-            elif data.get('type') == 'stopCall':
-                print("停止通话")
-                stop_playback()
-        except json.JSONDecodeError:
-            pass
-    
-    elif isinstance(message, bytes):
-        # 这是音频数据，尝试播放
-        received_audio_counter += 1
-        if received_audio_counter % 100 == 0:
-            print(f"已接收音频数据包: {received_audio_counter}")
-        play_audio(message)
 
 def stop_playback():
     global playback_stream
