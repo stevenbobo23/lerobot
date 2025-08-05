@@ -75,7 +75,7 @@ def on_message(ws, message):
             play_audio(message)
 
 def send_audio(data):
-    global sent_audio_counter
+    global sent_audio_counter, ws
     # 仅在录音状态下发送音频数据
     if is_recording and ws and ws.sock and ws.sock.connected:
         try:
@@ -214,7 +214,6 @@ def reconnect():
             wst.start()
             
             # 更新全局ws引用
-            global ws
             ws = new_ws
             
             # 等待一小段时间检查连接是否成功
