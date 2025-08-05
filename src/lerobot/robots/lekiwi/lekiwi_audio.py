@@ -40,6 +40,7 @@ is_recording = False  # 录音状态标志
 is_in_call_mode = False  # 是否处于通话模式（只发送不播放）
 is_connected = False  # 连接状态标志
 should_reconnect = True  # 是否应该重连
+ws = None  # WebSocket连接实例
 
 def on_message(ws, message):
     global received_audio_counter, is_recording, is_in_call_mode
@@ -76,7 +77,7 @@ def on_message(ws, message):
 def send_audio(data):
     global sent_audio_counter
     # 仅在录音状态下发送音频数据
-    if is_recording and ws.sock and ws.sock.connected:
+    if is_recording and ws and ws.sock and ws.sock.connected:
         try:
             ws.send(data, opcode=websocket.ABNF.OPCODE_BINARY)
             sent_audio_counter += 1
@@ -161,9 +162,10 @@ def on_close(ws, close_status_code, close_msg):
     # 如果应该重连，则启动重连机制
     if should_reconnect:
         print(f"将在 {RECONNECT_INTERVAL} 秒后尝试重连...")
-        reconnect_timer = threading.Timer(RECONNECT_INTERVAL, reconnect)
-        reconnect_timer.daemon = True
-        reconnect_timer.start()
+        # 使用线程而不是Timer，避免重复创建Timer
+        reconnect_thread = threading.Thread(target=reconnect)
+        reconnect_thread.daemon = True
+        reconnect_thread.start()
 
 def on_open(ws):
     global is_connected
@@ -173,34 +175,47 @@ def on_open(ws):
     register_device()
 
 def register_device():
+    global ws
     message = {
         'type': 'register',
         'deviceId': DEVICE_ID
     }
-    ws.send(json.dumps(message))
-    print(f"设备已注册: {DEVICE_ID}")
+    if ws:
+        ws.send(json.dumps(message))
+        print(f"设备已注册: {DEVICE_ID}")
 
 def reconnect():
     """尝试重新连接到服务器"""
     global ws, should_reconnect
     reconnect_attempts = 0
     
+    # 先确保之前的连接已关闭
+    if ws:
+        try:
+            ws.close()
+        except:
+            pass
+    
     while should_reconnect and (MAX_RECONNECT_ATTEMPTS == -1 or reconnect_attempts < MAX_RECONNECT_ATTEMPTS):
         try:
             print(f"尝试重连... (尝试次数: {reconnect_attempts + 1})")
             
             # 创建新的WebSocket连接
-            ws = websocket.WebSocketApp(SERVER_URL,
-                                      on_open=on_open,
-                                      on_message=on_message,
-                                      on_error=on_error,
-                                      on_close=on_close,
-                                      subprotocols=["binary"])
+            new_ws = websocket.WebSocketApp(SERVER_URL,
+                                          on_open=on_open,
+                                          on_message=on_message,
+                                          on_error=on_error,
+                                          on_close=on_close,
+                                          subprotocols=["binary"])
             
             # 在单独的线程中运行WebSocket
-            wst = threading.Thread(target=ws.run_forever)
+            wst = threading.Thread(target=new_ws.run_forever)
             wst.daemon = True
             wst.start()
+            
+            # 更新全局ws引用
+            global ws
+            ws = new_ws
             
             # 等待一小段时间检查连接是否成功
             time.sleep(2)
@@ -260,6 +275,7 @@ def main():
     global ws, should_reconnect
     
     # 重置计数器
+    global received_audio_counter, sent_audio_counter
     received_audio_counter = 0
     sent_audio_counter = 0
     
@@ -287,6 +303,11 @@ def main():
     
     # 清理资源
     should_reconnect = False  # 停止重连机制
+    if ws:
+        try:
+            ws.close()
+        except:
+            pass
     stop_playback()
     audio_playback.terminate()
 
