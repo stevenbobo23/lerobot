@@ -25,6 +25,10 @@ FORMAT = pyaudio.paInt16
 CHUNK = 2048
 BYTES_PER_SAMPLE = 2  # 16位音频
 
+# 重连配置
+RECONNECT_INTERVAL = 5  # 重连间隔（秒）
+MAX_RECONNECT_ATTEMPTS = -1  # 最大重连尝试次数，-1表示无限重试
+
 # 初始化音频播放
 audio_playback = pyaudio.PyAudio()
 playback_stream = None
@@ -34,6 +38,8 @@ received_audio_counter = 0
 sent_audio_counter = 0
 is_recording = False  # 录音状态标志
 is_in_call_mode = False  # 是否处于通话模式（只发送不播放）
+is_connected = False  # 连接状态标志
+should_reconnect = True  # 是否应该重连
 
 def on_message(ws, message):
     global received_audio_counter, is_recording, is_in_call_mode
@@ -144,14 +150,25 @@ def stop_playback():
             pass
 
 def on_error(ws, error):
-    print("WebSocket错误")
+    print(f"WebSocket错误: {error}")
 
 def on_close(ws, close_status_code, close_msg):
-    print("连接关闭")
+    global is_connected, should_reconnect
+    print(f"连接关闭: 状态码={close_status_code}, 消息={close_msg}")
+    is_connected = False
     stop_playback()
+    
+    # 如果应该重连，则启动重连机制
+    if should_reconnect:
+        print(f"将在 {RECONNECT_INTERVAL} 秒后尝试重连...")
+        reconnect_timer = threading.Timer(RECONNECT_INTERVAL, reconnect)
+        reconnect_timer.daemon = True
+        reconnect_timer.start()
 
 def on_open(ws):
+    global is_connected
     print("连接成功")
+    is_connected = True
     # 注册设备
     register_device()
 
@@ -162,6 +179,48 @@ def register_device():
     }
     ws.send(json.dumps(message))
     print(f"设备已注册: {DEVICE_ID}")
+
+def reconnect():
+    """尝试重新连接到服务器"""
+    global ws, should_reconnect
+    reconnect_attempts = 0
+    
+    while should_reconnect and (MAX_RECONNECT_ATTEMPTS == -1 or reconnect_attempts < MAX_RECONNECT_ATTEMPTS):
+        try:
+            print(f"尝试重连... (尝试次数: {reconnect_attempts + 1})")
+            
+            # 创建新的WebSocket连接
+            ws = websocket.WebSocketApp(SERVER_URL,
+                                      on_open=on_open,
+                                      on_message=on_message,
+                                      on_error=on_error,
+                                      on_close=on_close,
+                                      subprotocols=["binary"])
+            
+            # 在单独的线程中运行WebSocket
+            wst = threading.Thread(target=ws.run_forever)
+            wst.daemon = True
+            wst.start()
+            
+            # 等待一小段时间检查连接是否成功
+            time.sleep(2)
+            
+            if is_connected:
+                print("重连成功!")
+                return  # 连接成功，退出重连循环
+            else:
+                print("重连失败")
+                
+        except Exception as e:
+            print(f"重连过程中发生错误: {e}")
+        
+        reconnect_attempts += 1
+        if MAX_RECONNECT_ATTEMPTS != -1 and reconnect_attempts >= MAX_RECONNECT_ATTEMPTS:
+            print(f"已达最大重连尝试次数 ({MAX_RECONNECT_ATTEMPTS})，停止重连")
+            break
+        elif should_reconnect:
+            print(f"将在 {RECONNECT_INTERVAL} 秒后再次尝试重连...")
+            time.sleep(RECONNECT_INTERVAL)
 
 def start_audio_stream():
     p = pyaudio.PyAudio()
@@ -190,13 +249,15 @@ def start_audio_stream():
             time.sleep(0.1)
     except KeyboardInterrupt:
         print("停止音频流")
+        global should_reconnect
+        should_reconnect = False  # 停止重连机制
     
     stream.stop_stream()
     stream.close()
     p.terminate()
 
 def main():
-    global ws
+    global ws, should_reconnect
     
     # 重置计数器
     received_audio_counter = 0
@@ -225,6 +286,7 @@ def main():
     start_audio_stream()
     
     # 清理资源
+    should_reconnect = False  # 停止重连机制
     stop_playback()
     audio_playback.terminate()
 

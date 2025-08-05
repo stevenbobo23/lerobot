@@ -280,14 +280,23 @@
 
         <!-- 右侧视频显示 -->
         <div class="video-panel bg-black flex items-center justify-center p-4">
-            <div class="video-container w-full h-full flex items-center justify-center relative">
-                <img id="video-stream" src="/video_feed" alt="视频流" 
-                     class="max-w-full max-h-full object-contain rounded-lg">
-                <div class="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-                    实时视频流
+            <div class="grid grid-cols-1 gap-4 w-full h-full">
+                <div class="video-container w-full h-full flex items-center justify-center relative">
+                    <img id="video-stream" src="/video_feed" alt="手腕摄像头视频流" 
+                         class="max-w-full max-h-full object-contain rounded-lg">
+                    <div class="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                        手腕摄像头
+                    </div>
+                    <div class="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                        <span id="fps-counter">30 FPS</span>
+                    </div>
                 </div>
-                <div class="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-                    <span id="fps-counter">30 FPS</span>
+                <div class="video-container w-full h-full flex items-center justify-center relative">
+                    <img id="front-video-stream" src="/front_video_feed" alt="前置摄像头视频流" 
+                         class="max-w-full max-h-full object-contain rounded-lg">
+                    <div class="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                        前置摄像头
+                    </div>
                 </div>
             </div>
         </div>

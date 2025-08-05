@@ -26,7 +26,9 @@ CORS(app)
 robot: Optional[LeKiwiClient] = None
 leader_arm: Optional[SO100Leader] = None
 latest_frame: Optional[np.ndarray] = None
+latest_front_frame: Optional[np.ndarray] = None
 frame_lock = threading.Lock()
+front_frame_lock = threading.Lock()
 robot_status = {
     "robot_connected": False,
     "arm_connected": False,
@@ -128,7 +130,7 @@ def _from_keyboard_to_base_action(keys: set) -> Dict[str, float]:
 
 def video_stream_thread():
     """视频流线程"""
-    global latest_frame, robot_status
+    global latest_frame, latest_front_frame, robot_status
     
     while True:
         try:
@@ -155,10 +157,25 @@ def video_stream_thread():
                 else:
                     print("警告: 观察数据中没有wrist视频帧")
                     print(f"可用的观察数据键: {list(observation.keys())}")
+                    
+                # 获取前置摄像头视频帧
+                if "front" in observation:
+                    with front_frame_lock:
+                        latest_front_frame = observation["front"].copy()
+                        latest_front_frame = cv2.rotate(latest_front_frame, cv2.ROTATE_180)
+                        # 转换颜色空间：BGR -> RGB
+                        latest_front_frame = cv2.cvtColor(latest_front_frame, cv2.COLOR_BGR2RGB)
+                        # 优化：降低分辨率以减少网络传输数据量
+                        latest_front_frame = cv2.resize(latest_front_frame, (640, 480))
+                else:
+                    print("警告: 观察数据中没有front视频帧")
+                    print(f"可用的观察数据键: {list(observation.keys())}")
             else:
                 # 机器人未连接时，清空视频帧
                 with frame_lock:
                     latest_frame = None
+                with front_frame_lock:
+                    latest_front_frame = None
                 
             time.sleep(1/15)  # 降低帧率从30FPS到15FPS以减少网络负载
             
@@ -167,6 +184,8 @@ def video_stream_thread():
             # 出错时也清空视频帧
             with frame_lock:
                 latest_frame = None
+            with front_frame_lock:
+                latest_front_frame = None
             time.sleep(1)
 
 def control_thread():
@@ -278,6 +297,37 @@ def video_feed():
                     placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
                     # 添加文字
                     cv2.putText(placeholder, "No Video Feed", (200, 240), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                    cv2.putText(placeholder, "Please connect robot", (180, 280), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
+                    
+                    ret, buffer = cv2.imencode('.jpg', placeholder)
+                    if ret:
+                        frame_data = buffer.tobytes()
+                        yield (b'--frame\r\n'
+                               b'Content-Type: image/jpeg\r\n\r\n' + frame_data + b'\r\n')
+            time.sleep(1/30)  # 30 FPS
+    
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/front_video_feed')
+def front_video_feed():
+    """前置摄像头视频流端点"""
+    def generate():
+        while True:
+            with front_frame_lock:
+                if latest_front_frame is not None:
+                    # 编码图像为JPEG
+                    ret, buffer = cv2.imencode('.jpg', latest_front_frame)
+                    if ret:
+                        frame_data = buffer.tobytes()
+                        yield (b'--frame\r\n'
+                               b'Content-Type: image/jpeg\r\n\r\n' + frame_data + b'\r\n')
+                else:
+                    # 当没有视频帧时，生成一个占位图像
+                    placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
+                    # 添加文字
+                    cv2.putText(placeholder, "No Front Video", (200, 240), 
                                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
                     cv2.putText(placeholder, "Please connect robot", (180, 280), 
                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
