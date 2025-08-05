@@ -150,7 +150,7 @@ def video_stream_thread():
                         # 转换颜色空间：BGR -> RGB
                         latest_frame = cv2.cvtColor(latest_frame, cv2.COLOR_BGR2RGB)
                         # 优化：降低分辨率以减少网络传输数据量
-                        latest_frame = cv2.resize(latest_frame, (320, 240))  # 从默认大小降低到320x240
+                        latest_frame = cv2.resize(latest_frame, (640, 480))  # 从默认大小降低到320x240
                     # print(f"获取到手腕视频帧，形状: {latest_frame.shape}")
                 else:
                     print("警告: 观察数据中没有wrist视频帧")
