@@ -326,6 +326,60 @@ def nod_head(times: int = 3, pause_duration: float = 0.3) -> dict:
             "error": f"点头动作执行异常: {str(e)}"
         }
 
+@mcp.tool()
+def reset_arm() -> dict:
+    """
+    将机械臂复位到初始位置
+    
+    将所有机械臂关节复位到0度位置（夹爪除外保持当前状态）：
+    - 肩膀水平(Pan): 0度
+    - 肩膀垂直(Lift): 0度
+    - 肘关节(Elbow): 0度
+    - 腕关节弯曲(Wrist Flex): 0度
+    - 腕关节旋转(Wrist Roll): 0度
+    - 夹爪(Gripper): 保持当前状态
+    
+    Returns:
+        dict: 包含操作结果的字典
+    """
+    logger.info("Resetting arm to home position")
+    
+    service = get_service()
+    if service is None:
+        return {
+            "success": False,
+            "error": "LeKiwi服务不可用"
+        }
+    
+    try:
+        # 复位所有关节到0度（夹爪除外）
+        home_position = {
+            "arm_shoulder_pan.pos": 0,
+            "arm_shoulder_lift.pos": 0,
+            "arm_elbow_flex.pos": 0,
+            "arm_wrist_flex.pos": 0,
+            "arm_wrist_roll.pos": 0
+        }
+        
+        logger.info(f"Setting arm joints to home position: {home_position}")
+        result = service.set_arm_position(home_position)
+        
+        if result["success"]:
+            result["message"] = "机械臂已复位到初始位置（所有关节0度）"
+            result["home_position"] = home_position
+            logger.info("Arm reset to home position successfully")
+        else:
+            logger.error(f"Arm reset failed: {result.get('message', '未知错误')}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Arm reset failed with exception: {e}")
+        return {
+            "success": False,
+            "error": f"机械臂复位执行异常: {str(e)}"
+        }
+
 # 启动服务器
 if __name__ == "__main__":
     logger.info("Starting LeKiwi MCP Controller server...")

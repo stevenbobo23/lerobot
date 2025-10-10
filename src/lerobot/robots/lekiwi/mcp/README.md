@@ -101,6 +101,7 @@ python start_server.py mcp
 - `move_robot_with_custom_speed` - 自定义速度移动
 - `control_gripper` - 控制夹爪开关（打开到80度，关闭到0度）
 - `nod_head` - 控制机器人点头（通过腕关节弯曲实现）
+- `reset_arm` - 将机械臂复位到初始位置（所有关节0度）
 - `set_speed_level` - 设置速度等级
 - `get_robot_status` - 获取机器人状态
 
@@ -123,6 +124,12 @@ nod_head(times=5, pause_duration=0.5)
 
 # 单次点头，停顿0.2秒
 nod_head(times=1, pause_duration=0.2)
+```
+
+#### 机械臂复位示例
+```python
+# 将所有关节复位到0度（夹爪保持当前状态）
+reset_arm()
 ```
 
 ## 控制命令
