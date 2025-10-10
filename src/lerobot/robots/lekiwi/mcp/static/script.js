@@ -275,11 +275,159 @@ function initArmSliders() {
     });
 }
 
+// 初始化视频流
+function initVideoStreams() {
+    // 获取摄像头状态
+    fetch('/cameras')
+        .then(response => response.json())
+        .then(data => {
+            console.log('摄像头状态:', data);
+            
+            if (data.robot_connected) {
+                // 初始化所有摄像头
+                data.cameras.forEach(camera => {
+                    initSingleVideoStream(camera.name, camera.display_name, camera.connected, camera.frame_available);
+                });
+            } else {
+                showVideoError('机器人未连接，无法显示视频');
+            }
+        })
+        .catch(error => {
+            console.error('获取摄像头状态失败:', error);
+            showVideoError('无法获取摄像头状态');
+        });
+}
+
+// 初始化单个视频流
+function initSingleVideoStream(cameraName, displayName, isConnected, frameAvailable) {
+    const imgElement = document.getElementById(cameraName + '-camera');
+    if (!imgElement) {
+        console.warn(`找不到摄像头元素: ${cameraName}-camera`);
+        return;
+    }
+    
+    if (isConnected && frameAvailable) {
+        // 设置视频流URL
+        const streamUrl = `/video_feed/${cameraName}?t=${Date.now()}`;
+        imgElement.src = streamUrl;
+        imgElement.style.display = 'block';
+        
+        // 添加错误处理
+        imgElement.onerror = function() {
+            console.error(`摄像头 ${cameraName} 视频流加载失败`);
+            this.style.display = 'none';
+            showCameraError(cameraName, `${displayName}视频流加载失败`);
+        };
+        
+        // 成功加载时隐藏错误信息
+        imgElement.onload = function() {
+            hideCameraError(cameraName);
+        };
+        
+    } else {
+        imgElement.style.display = 'none';
+        const reason = !isConnected ? '摄像头未连接' : '摄像头无数据';
+        showCameraError(cameraName, `${displayName}: ${reason}`);
+    }
+}
+
+// 显示摄像头错误信息
+function showCameraError(cameraName, message) {
+    const videoItem = document.querySelector(`#${cameraName}-camera`).closest('.video-item');
+    if (videoItem) {
+        let errorDiv = videoItem.querySelector('.camera-error');
+        if (!errorDiv) {
+            errorDiv = document.createElement('div');
+            errorDiv.className = 'camera-error';
+            errorDiv.style.cssText = `
+                background-color: #f8d7da;
+                color: #721c24;
+                padding: 20px;
+                border-radius: 5px;
+                text-align: center;
+                font-weight: bold;
+                border: 2px solid #f5c6cb;
+            `;
+            videoItem.appendChild(errorDiv);
+        }
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+// 隐藏摄像头错误信息
+function hideCameraError(cameraName) {
+    const videoItem = document.querySelector(`#${cameraName}-camera`).closest('.video-item');
+    if (videoItem) {
+        const errorDiv = videoItem.querySelector('.camera-error');
+        if (errorDiv) {
+            errorDiv.style.display = 'none';
+        }
+    }
+}
+
+// 显示通用视频错误
+function showVideoError(message) {
+    const videoSection = document.querySelector('.video-section');
+    if (videoSection) {
+        let errorDiv = videoSection.querySelector('.video-error');
+        if (!errorDiv) {
+            errorDiv = document.createElement('div');
+            errorDiv.className = 'video-error';
+            errorDiv.style.cssText = `
+                background-color: #f8d7da;
+                color: #721c24;
+                padding: 15px;
+                border-radius: 5px;
+                text-align: center;
+                font-weight: bold;
+                border: 2px solid #f5c6cb;
+                margin-top: 10px;
+            `;
+            videoSection.appendChild(errorDiv);
+        }
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+// 定期检查摄像头状态
+function checkCameraStatus() {
+    fetch('/cameras')
+        .then(response => response.json())
+        .then(data => {
+            if (data.robot_connected) {
+                data.cameras.forEach(camera => {
+                    const imgElement = document.getElementById(camera.name + '-camera');
+                    if (imgElement) {
+                        if (camera.connected && camera.frame_available) {
+                            if (imgElement.style.display === 'none') {
+                                // 摄像头恢复了，重新加载视频流
+                                initSingleVideoStream(camera.name, camera.display_name, camera.connected, camera.frame_available);
+                            }
+                        } else {
+                            imgElement.style.display = 'none';
+                            const reason = !camera.connected ? '摄像头未连接' : '摄像头无数据';
+                            showCameraError(camera.name, `${camera.display_name}: ${reason}`);
+                        }
+                    }
+                });
+            }
+        })
+        .catch(error => {
+            console.debug('检查摄像头状态失败:', error);
+        });
+}
+
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
     updateStatus();
     initArmSliders();
+    initVideoStreams(); // 初始化视频流
     console.log('LeKiwi HTTP Controller 已加载');
     console.log('键盘控制: W(前进) S(后退) A(左转) D(右转) Q(左旋转) E(右旋转) 空格(停止)');
     console.log('机械臂控制: 使用滑块调节各关节位置');
+    
+    // 定期检查摄像头状态（5秒一次）
+    setInterval(checkCameraStatus, 5000);
 });

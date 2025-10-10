@@ -163,14 +163,21 @@ class LeKiwiHttpController:
                 while True:
                     try:
                         if self.service.robot.is_connected and camera in self.service.robot.cameras:
-                            # 读取摄像头帧
-                            frame = self.service.robot.cameras[camera].read()
-                            if frame is not None:
-                                # 编码为JPEG
-                                ret, jpeg = cv2.imencode('.jpg', frame)
-                                if ret:
-                                    yield (b'--frame\r\n'
-                                           b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
+                            # 使用async_read方法读取摄像头帧，设置较短的超时时间
+                            try:
+                                frame = self.service.robot.cameras[camera].async_read(timeout_ms=100)
+                                if frame is not None and frame.size > 0:
+                                    # 编码为JPEG
+                                    ret, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                                    if ret:
+                                        yield (b'--frame\r\n'
+                                               b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
+                                else:
+                                    # 如果没有有效帧，等待一下
+                                    time.sleep(0.05)
+                            except Exception as cam_e:
+                                self.logger.debug(f"摄像头 {camera} 读取错误: {cam_e}")
+                                time.sleep(0.1)
                         else:
                             # 如果摄像头不可用，等待一下
                             time.sleep(0.1)
@@ -184,13 +191,48 @@ class LeKiwiHttpController:
         def get_cameras():
             """获取可用的摄像头列表"""
             cameras = []
+            camera_status = {}
+            
             if self.service.robot.is_connected:
-                for cam_name in self.service.robot.cameras.keys():
-                    cameras.append({
-                        'name': cam_name,
-                        'display_name': '前置摄像头' if cam_name == 'front' else '手腕摄像头'
-                    })
-            return jsonify({'cameras': cameras})
+                for cam_name, cam in self.service.robot.cameras.items():
+                    try:
+                        # 检查摄像头连接状态
+                        is_connected = cam.is_connected
+                        # 尝试读取一帧来测试
+                        test_frame = None
+                        if is_connected:
+                            try:
+                                test_frame = cam.async_read(timeout_ms=100)
+                                frame_available = test_frame is not None and test_frame.size > 0
+                            except Exception as e:
+                                frame_available = False
+                                camera_status[cam_name] = str(e)
+                        else:
+                            frame_available = False
+                            
+                        cameras.append({
+                            'name': cam_name,
+                            'display_name': '前置摄像头' if cam_name == 'front' else '手腕摄像头',
+                            'connected': is_connected,
+                            'frame_available': frame_available,
+                            'frame_shape': test_frame.shape if test_frame is not None else None
+                        })
+                        
+                    except Exception as e:
+                        cameras.append({
+                            'name': cam_name,
+                            'display_name': '前置摄像头' if cam_name == 'front' else '手腕摄像头',
+                            'connected': False,
+                            'frame_available': False,
+                            'error': str(e)
+                        })
+                        camera_status[cam_name] = str(e)
+            
+            return jsonify({
+                'cameras': cameras, 
+                'robot_connected': self.service.robot.is_connected,
+                'camera_status': camera_status
+            })
 
     def run(self):
         """启动HTTP服务器"""
