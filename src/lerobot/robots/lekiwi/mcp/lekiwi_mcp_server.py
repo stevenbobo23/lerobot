@@ -380,6 +380,217 @@ def reset_arm() -> dict:
             "error": f"机械臂复位执行异常: {str(e)}"
         }
 
+@mcp.tool()
+def stand_at_attention() -> dict:
+    """
+    控制机器人立正姿态
+    
+    将肘关节设置到-90度实现立正姿态：
+    - 肘关节(Elbow): -90度
+    
+    Returns:
+        dict: 包含操作结果的字典
+    """
+    logger.info("Setting robot to stand at attention position")
+    
+    service = get_service()
+    if service is None:
+        return {
+            "success": False,
+            "error": "LeKiwi服务不可用"
+        }
+    
+    try:
+        # 设置肘关节到-90度
+        attention_position = {"arm_elbow_flex.pos": -90}
+        
+        logger.info(f"Setting elbow to attention position: {attention_position}")
+        result = service.set_arm_position(attention_position)
+        
+        if result["success"]:
+            result["message"] = "机器人已设置为立正姿态（肘关节-90度）"
+            result["attention_position"] = attention_position
+            logger.info("Stand at attention position set successfully")
+        else:
+            logger.error(f"Stand at attention failed: {result.get('message', '未知错误')}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Stand at attention failed with exception: {e}")
+        return {
+            "success": False,
+            "error": f"立正姿态设置执行异常: {str(e)}"
+        }
+
+@mcp.tool()
+def shake_head(times: int = 3, pause_duration: float = 0.3) -> dict:
+    """
+    控制机器人摇头动作
+    
+    通过控制腕关节旋转(Wrist Roll)实现摇头效果：
+    从-40度到40度再回到-40度，可重复多次
+    
+    Args:
+        times: 摇头次数，默认3次
+        pause_duration: 每次动作之间的停顿时间（秒），默认0.3秒
+        
+    Returns:
+        dict: 包含操作结果的字典
+    """
+    import time
+    
+    logger.info(f"Performing shake head action: {times} times, pause: {pause_duration}s")
+    
+    service = get_service()
+    if service is None:
+        return {
+            "success": False,
+            "error": "LeKiwi服务不可用"
+        }
+    
+    try:
+        results = []
+        
+        for i in range(times):
+            # 向左摇头（腕关节旋转到-40度）
+            logger.info(f"Shake {i+1}/{times}: Moving wrist roll to -40 degrees")
+            left_result = service.set_arm_position({"arm_wrist_roll.pos": -40})
+            results.append({"cycle": i+1, "phase": "left", "position": -40, "success": left_result["success"]})
+            
+            if not left_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"摇头动作第{i+1}次失败（向左）: {left_result.get('message', '未知错误')}",
+                    "completed_cycles": i,
+                    "results": results
+                }
+            
+            time.sleep(pause_duration)
+            
+            # 向右摇头（腕关节旋转到40度）
+            logger.info(f"Shake {i+1}/{times}: Moving wrist roll to 40 degrees")
+            right_result = service.set_arm_position({"arm_wrist_roll.pos": 40})
+            results.append({"cycle": i+1, "phase": "right", "position": 40, "success": right_result["success"]})
+            
+            if not right_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"摇头动作第{i+1}次失败（向右）: {right_result.get('message', '未知错误')}",
+                    "completed_cycles": i,
+                    "results": results
+                }
+            
+            # 最后一次不需要停顿
+            if i < times - 1:
+                time.sleep(pause_duration)
+        
+        # 回到中间位置
+        logger.info("Returning wrist roll to center position (0 degrees)")
+        center_result = service.set_arm_position({"arm_wrist_roll.pos": 0})
+        results.append({"cycle": "final", "phase": "center", "position": 0, "success": center_result["success"]})
+        
+        logger.info(f"Shake head action completed successfully: {times} cycles")
+        return {
+            "success": True,
+            "message": f"摇头动作完成，共{times}次，每次停顿{pause_duration}秒",
+            "cycles": times,
+            "pause_duration": pause_duration,
+            "total_duration": times * pause_duration * 2,
+            "results": results
+        }
+        
+    except Exception as e:
+        logger.error(f"Shake head action failed: {e}")
+        return {
+            "success": False,
+            "error": f"摇头动作执行异常: {str(e)}"
+        }
+
+@mcp.tool()
+def twist_waist(times: int = 3, pause_duration: float = 0.3) -> dict:
+    """
+    控制机器人扭腰动作
+    
+    通过控制肩膀水平旋转(Shoulder Pan)实现扭腰效果：
+    从-10度到10度再回到-10度，可重复多次
+    
+    Args:
+        times: 扭腰次数，默认3次
+        pause_duration: 每次动作之间的停顿时间（秒），默认0.3秒
+        
+    Returns:
+        dict: 包含操作结果的字典
+    """
+    import time
+    
+    logger.info(f"Performing twist waist action: {times} times, pause: {pause_duration}s")
+    
+    service = get_service()
+    if service is None:
+        return {
+            "success": False,
+            "error": "LeKiwi服务不可用"
+        }
+    
+    try:
+        results = []
+        
+        for i in range(times):
+            # 向左扭腰（肩膀水平旋转到-10度）
+            logger.info(f"Twist {i+1}/{times}: Moving shoulder pan to -10 degrees")
+            left_result = service.set_arm_position({"arm_shoulder_pan.pos": -10})
+            results.append({"cycle": i+1, "phase": "left", "position": -10, "success": left_result["success"]})
+            
+            if not left_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"扭腰动作第{i+1}次失败（向左）: {left_result.get('message', '未知错误')}",
+                    "completed_cycles": i,
+                    "results": results
+                }
+            
+            time.sleep(pause_duration)
+            
+            # 向右扭腰（肩膀水平旋转到10度）
+            logger.info(f"Twist {i+1}/{times}: Moving shoulder pan to 10 degrees")
+            right_result = service.set_arm_position({"arm_shoulder_pan.pos": 10})
+            results.append({"cycle": i+1, "phase": "right", "position": 10, "success": right_result["success"]})
+            
+            if not right_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"扭腰动作第{i+1}次失败（向右）: {right_result.get('message', '未知错误')}",
+                    "completed_cycles": i,
+                    "results": results
+                }
+            
+            # 最后一次不需要停顿
+            if i < times - 1:
+                time.sleep(pause_duration)
+        
+        # 回到中间位置
+        logger.info("Returning shoulder pan to center position (0 degrees)")
+        center_result = service.set_arm_position({"arm_shoulder_pan.pos": 0})
+        results.append({"cycle": "final", "phase": "center", "position": 0, "success": center_result["success"]})
+        
+        logger.info(f"Twist waist action completed successfully: {times} cycles")
+        return {
+            "success": True,
+            "message": f"扭腰动作完成，共{times}次，每次停顿{pause_duration}秒",
+            "cycles": times,
+            "pause_duration": pause_duration,
+            "total_duration": times * pause_duration * 2,
+            "results": results
+        }
+        
+    except Exception as e:
+        logger.error(f"Twist waist action failed: {e}")
+        return {
+            "success": False,
+            "error": f"扭腰动作执行异常: {str(e)}"
+        }
+
 # 启动服务器
 if __name__ == "__main__":
     logger.info("Starting LeKiwi MCP Controller server...")
