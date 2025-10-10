@@ -115,6 +115,12 @@ class LeKiwiHttpController:
                         result = self.service.execute_predefined_command(data["command"])
                     return jsonify(result)
                 
+                # 处理机械臂位置控制
+                elif any(key.endswith('.pos') for key in data.keys()):
+                    arm_positions = {k: v for k, v in data.items() if k.endswith('.pos')}
+                    result = self.service.set_arm_position(arm_positions)
+                    return jsonify(result)
+                
                 # 处理自定义速度
                 elif any(key in data for key in ["x_vel", "y_vel", "theta_vel"]):
                     duration = data.get("duration", 0)  # 获取持续时间参数

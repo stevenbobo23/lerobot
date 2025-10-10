@@ -282,6 +282,37 @@ class LeKiwiService:
             "message": f"机器人自定义速度移动{duration}秒"
         }
     
+    def set_arm_position(self, arm_positions: Dict[str, float]) -> Dict[str, Any]:
+        """设置机械臂位置"""
+        if not self.robot.is_connected:
+            return {
+                "success": False,
+                "message": "机器人未连接，请检查硬件连接后重启服务"
+            }
+        
+        try:
+            with self._lock:
+                # 更新机械臂位置，保持移动速度不变
+                for joint, position in arm_positions.items():
+                    if joint in self.current_action:
+                        self.current_action[joint] = position
+                
+                self.last_command_time = time.time()
+            
+            return {
+                "success": True,
+                "message": "机械臂位置已更新",
+                "arm_positions": arm_positions,
+                "current_action": self.current_action.copy()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"设置机械臂位置失败: {e}")
+            return {
+                "success": False,
+                "message": str(e)
+            }
+    
     def _control_loop(self):
         """机器人控制主循环"""
         self.logger.info("机器人控制循环已启动")

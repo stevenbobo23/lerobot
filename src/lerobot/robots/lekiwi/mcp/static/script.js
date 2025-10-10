@@ -117,9 +117,169 @@ document.addEventListener('keydown', (e) => {
 // 定期更新状态
 setInterval(updateStatus, 1000);
 
+// 机械臂当前位置
+let currentArmPosition = {
+    'arm_shoulder_pan.pos': 0,
+    'arm_shoulder_lift.pos': 0,
+    'arm_elbow_flex.pos': 0,
+    'arm_wrist_flex.pos': 0,
+    'arm_wrist_roll.pos': 0,
+    'arm_gripper.pos': 0
+};
+
+// 发送机械臂位置命令
+function sendArmPosition(positions) {
+    fetch('/control', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(positions)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('机械臂位置已更新', 'success');
+        } else {
+            showNotification('机械臂控制失败: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('发送机械臂命令失败:', error);
+        showNotification('发送机械臂命令失败: ' + error.message, 'error');
+    });
+}
+
+// 更新滑块值显示
+function updateSliderValue(sliderId, value) {
+    const valueSpan = document.getElementById(sliderId + '-value');
+    if (valueSpan) {
+        valueSpan.textContent = value;
+    }
+}
+
+// 复位机械臂到初始位置
+function resetArmToHome() {
+    const homePosition = {
+        'arm_shoulder_pan.pos': 0,
+        'arm_shoulder_lift.pos': 0,
+        'arm_elbow_flex.pos': 0,
+        'arm_wrist_flex.pos': 0,
+        'arm_wrist_roll.pos': 0,
+        'arm_gripper.pos': 0
+    };
+    
+    // 更新滑块位置
+    document.getElementById('shoulder-pan').value = 0;
+    document.getElementById('shoulder-lift').value = 0;
+    document.getElementById('elbow-flex').value = 0;
+    document.getElementById('wrist-flex').value = 0;
+    document.getElementById('wrist-roll').value = 0;
+    document.getElementById('gripper').value = 0;
+    
+    // 更新显示值
+    updateSliderValue('shoulder-pan', 0);
+    updateSliderValue('shoulder-lift', 0);
+    updateSliderValue('elbow-flex', 0);
+    updateSliderValue('wrist-flex', 0);
+    updateSliderValue('wrist-roll', 0);
+    updateSliderValue('gripper', 0);
+    
+    // 发送命令
+    sendArmPosition(homePosition);
+    currentArmPosition = {...homePosition};
+}
+
+// 获取当前机械臂位置
+function getCurrentArmPosition() {
+    fetch('/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.current_action) {
+                const action = data.current_action;
+                
+                // 更新滑块和显示值
+                if (action['arm_shoulder_pan.pos'] !== undefined) {
+                    const value = Math.round(action['arm_shoulder_pan.pos']);
+                    document.getElementById('shoulder-pan').value = value;
+                    updateSliderValue('shoulder-pan', value);
+                }
+                if (action['arm_shoulder_lift.pos'] !== undefined) {
+                    const value = Math.round(action['arm_shoulder_lift.pos']);
+                    document.getElementById('shoulder-lift').value = value;
+                    updateSliderValue('shoulder-lift', value);
+                }
+                if (action['arm_elbow_flex.pos'] !== undefined) {
+                    const value = Math.round(action['arm_elbow_flex.pos']);
+                    document.getElementById('elbow-flex').value = value;
+                    updateSliderValue('elbow-flex', value);
+                }
+                if (action['arm_wrist_flex.pos'] !== undefined) {
+                    const value = Math.round(action['arm_wrist_flex.pos']);
+                    document.getElementById('wrist-flex').value = value;
+                    updateSliderValue('wrist-flex', value);
+                }
+                if (action['arm_wrist_roll.pos'] !== undefined) {
+                    const value = Math.round(action['arm_wrist_roll.pos']);
+                    document.getElementById('wrist-roll').value = value;
+                    updateSliderValue('wrist-roll', value);
+                }
+                if (action['arm_gripper.pos'] !== undefined) {
+                    const value = Math.round(action['arm_gripper.pos']);
+                    document.getElementById('gripper').value = value;
+                    updateSliderValue('gripper', value);
+                }
+                
+                showNotification('已获取当前机械臂位置', 'success');
+            } else {
+                showNotification('获取机械臂位置失败', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('获取机械臂位置失败:', error);
+            showNotification('获取机械臂位置失败: ' + error.message, 'error');
+        });
+}
+
+// 初始化机械臂滑块事件监听
+function initArmSliders() {
+    const sliders = document.querySelectorAll('.arm-slider');
+    
+    sliders.forEach(slider => {
+        // 更新显示值
+        slider.addEventListener('input', function() {
+            const value = this.value;
+            const sliderId = this.id;
+            updateSliderValue(sliderId, value);
+        });
+        
+        // 发送位置命令（当用户释放滑块时）
+        slider.addEventListener('change', function() {
+            const value = parseFloat(this.value);
+            const joint = this.getAttribute('data-joint');
+            
+            if (joint) {
+                const position = {};
+                position[joint] = value;
+                
+                // 更新当前位置
+                currentArmPosition[joint] = value;
+                
+                // 发送完整的机械臂位置（保持其他关节不变）
+                sendArmPosition(currentArmPosition);
+            }
+        });
+        
+        // 初始化显示值
+        updateSliderValue(slider.id, slider.value);
+    });
+}
+
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
     updateStatus();
+    initArmSliders();
     console.log('LeKiwi HTTP Controller 已加载');
     console.log('键盘控制: W(前进) S(后退) A(左转) D(右转) Q(左旋转) E(右旋转) 空格(停止)');
+    console.log('机械臂控制: 使用滑块调节各关节位置');
 });
