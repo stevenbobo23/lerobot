@@ -59,7 +59,7 @@ if sys.platform == 'win32':
 
 # 导入模块
 from lerobot.robots.lekiwi.mcp.lekiwi_http_controller import LeKiwiHttpController, LeKiwiHttpControllerConfig
-from lerobot.robots.lekiwi.mcp.lekiwi_service import LeKiwiServiceConfig
+from lerobot.robots.lekiwi.mcp.lekiwi_service import LeKiwiServiceConfig, LeKiwiService, set_global_service
 from lerobot.robots.lekiwi.config_lekiwi import LeKiwiConfig
 
 # 全局控制变量
@@ -73,6 +73,7 @@ class IntegratedService:
         self.robot_id = robot_id
         self.http_controller = None
         self.http_thread = None
+        self.lekiwi_service = None  # 全局LeKiwi服务实例
         
         # 获取MCP配置
         self.mcp_endpoint = os.environ.get('MCP_ENDPOINT')
@@ -83,7 +84,7 @@ class IntegratedService:
     
     def _create_services(self):
         """创建服务实例"""
-        # 创建HTTP控制器配置
+        # 首先创建全局LeKiwi服务实例
         robot_config = LeKiwiConfig(id=self.robot_id)
         service_config = LeKiwiServiceConfig(
             robot=robot_config,
@@ -92,13 +93,20 @@ class IntegratedService:
             command_timeout_s=0.5,
             max_loop_freq_hz=30
         )
+        
+        # 创建并设置全局LeKiwi服务实例
+        self.lekiwi_service = LeKiwiService(service_config)
+        set_global_service(self.lekiwi_service)
+        logger.info("✓ 全局LeKiwi服务实例已创建")
+        
+        # 创建HTTP控制器配置（复用同一个服务配置）
         http_config = LeKiwiHttpControllerConfig(
             service=service_config,
             host="0.0.0.0",
             port=8080
         )
         
-        # 创建HTTP控制器
+        # 创建HTTP控制器（但不再创建新的服务实例）
         self.http_controller = LeKiwiHttpController(http_config)
     
 
@@ -251,6 +259,13 @@ class IntegratedService:
         logger.info("启动LeKiwi集成服务...")
         
         try:
+            # 0. 首先连接LeKiwi服务
+            logger.info("步骤 0: 连接LeKiwi服务")
+            if self.lekiwi_service.connect():
+                logger.info("✓ LeKiwi服务连接成功")
+            else:
+                logger.warning("⚠️ LeKiwi服务连接失败，将以离线模式运行")
+            
             # 1. 在单独线程中启动HTTP服务器
             self.http_thread = threading.Thread(target=self._start_http_server, daemon=True)
             self.http_thread.start()
@@ -274,6 +289,14 @@ class IntegratedService:
         """停止集成服务"""
         logger.info("正在关闭集成服务...")
         shutdown_event.set()
+        
+        # 断开LeKiwi服务连接
+        if self.lekiwi_service:
+            try:
+                self.lekiwi_service.disconnect()
+                logger.info("✓ LeKiwi服务已断开连接")
+            except Exception as e:
+                logger.error(f"断开LeKiwi服务时出错: {e}")
         
         # 清理HTTP控制器
         if self.http_controller:

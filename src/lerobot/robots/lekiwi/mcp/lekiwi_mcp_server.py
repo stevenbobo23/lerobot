@@ -48,9 +48,12 @@ speed_levels = [
 
 def get_service():
     """获取LeKiwi服务实例"""
+    from lerobot.robots.lekiwi.mcp.lekiwi_service import get_global_service
+    
     service = get_global_service()
     if service is None:
-        logger.warning("未找到全局LeKiwi服务实例")
+        logger.warning("未找到全局LeKiwi服务实例，请确保通过start_server.py启动服务")
+    
     return service
 
 # Add an addition tool
