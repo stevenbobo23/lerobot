@@ -35,6 +35,7 @@ import subprocess
 import time
 import logging
 import signal
+import argparse
 from pathlib import Path
 
 
@@ -58,9 +59,9 @@ mcp_process = None
 http_thread = None
 shutdown_event = threading.Event()
 
-def create_default_config():
+def create_default_config(robot_id="my_awesome_kiwi"):
     """创建默认配置"""
-    robot_config = LeKiwiConfig()
+    robot_config = LeKiwiConfig(robot_id=robot_id)
     
     service_config = LeKiwiServiceConfig(
         robot=robot_config,
@@ -143,10 +144,10 @@ def start_mcp_service():
         return False
 
 
-def start_http_controller():
+def start_http_controller(robot_id="my_awesome_kiwi"):
     """在单独线程中启动HTTP控制器"""
     try:
-        config = create_default_config()
+        config = create_default_config(robot_id)
         main(config)
     except Exception as e:
         logger.error(f"HTTP控制器异常: {e}")
@@ -176,8 +177,24 @@ def signal_handler(sig, frame):
     logger.info("服务已关闭")
     sys.exit(0)
 
+def parse_args():
+    """解析命令行参数"""
+    parser = argparse.ArgumentParser(description="LeKiwi 集成控制服务")
+    parser.add_argument(
+        "--robot-id", 
+        type=str, 
+        default="my_awesome_kiwi",
+        help="机器人 ID 标识符（默认: my_awesome_kiwi）"
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+    # 解析命令行参数
+    args = parse_args()
+    
     print("=== LeKiwi 集成控制服务 ===")
+    print(f"机器人 ID: {args.robot_id}")
     print("正在启动集成服务...")
     print("控制界面地址: http://localhost:8080")
     print("按 Ctrl+C 停止所有服务")
@@ -199,7 +216,7 @@ if __name__ == "__main__":
         
         # 2. 在单独线程中启动HTTP控制器
         logger.info("步骤 2: 启动HTTP控制器")
-        http_thread = threading.Thread(target=start_http_controller, daemon=False)
+        http_thread = threading.Thread(target=lambda: start_http_controller(args.robot_id), daemon=False)
         http_thread.start()
         
         logger.info("✓ 所有服务已启动")
