@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LeKiwi HTTP Controller</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>LeKiwi HTTP Controller</h1>
+        
+        <div id="status" class="status disconnected">状态: 检查中...</div>
+        
+        <div style="margin-bottom: 20px;">
+            <label for="durationInput" style="display: block; margin-bottom: 5px; font-weight: bold;">移动持续时间 (秒):</label>
+            <input type="number" id="durationInput" min="0" max="10" step="0.1" value="0" 
+                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px;">
+            <small style="color: #666; display: block; margin-top: 2px;">设置为0则持续移动直到手动停止</small>
+        </div>
+        
+        <div class="control-grid">
+            <button class="control-button forward" onclick="sendCommand('forward')">前进 ↑</button>
+            <button class="control-button left" onclick="sendCommand('left')">左转 ←</button>
+            <button class="control-button stop" onclick="sendCommand('stop')">停止 ⏹</button>
+            <button class="control-button right" onclick="sendCommand('right')">右转 →</button>
+            <button class="control-button backward" onclick="sendCommand('backward')">后退 ↓</button>
+            <button class="control-button rotate-left" onclick="sendCommand('rotate_left')">左旋转 ↺</button>
+            <button class="control-button rotate-right" onclick="sendCommand('rotate_right')">右旋转 ↻</button>
+        </div>
+        
+        <div class="api-info">
+            <h3>API接口说明</h3>
+            <p><strong>GET /status</strong> - 获取机器人状态</p>
+            <p><strong>POST /control</strong> - 控制机器人移动</p>
+            <pre>
+请求体示例:
+{
+    "command": "forward",  // 可选值: forward, backward, left, right, rotate_left, rotate_right, stop
+    "duration": 2.5       // 可选: 移动持续时间(秒)，默认为0(持续移动)
+}
+
+或直接指定速度:
+{
+    "x_vel": 0.2,     // 前后速度 (m/s)
+    "y_vel": 0.0,     // 左右速度 (m/s) 
+    "theta_vel": 0.0, // 旋转速度 (deg/s)
+    "duration": 1.0   // 可选: 移动持续时间(秒)，默认为0(持续移动)
+}
+            </pre>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

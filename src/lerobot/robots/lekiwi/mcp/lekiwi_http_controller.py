@@ -23,7 +23,7 @@ from typing import Dict, Any
 
 import draccus
 import numpy as np
-from flask import Flask, jsonify, request, render_template_string
+from flask import Flask, jsonify, request, render_template
 
 from ..config_lekiwi import LeKiwiConfig
 from .lekiwi_service import LeKiwiService, LeKiwiServiceConfig, get_global_service, set_global_service
@@ -43,7 +43,16 @@ class LeKiwiHttpController:
     
     def __init__(self, config: LeKiwiHttpControllerConfig):
         self.config = config
-        self.app = Flask(__name__)
+        
+        # 设置Flask应用的模板和静态文件目录
+        import os
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        template_dir = os.path.join(current_dir, 'templates')
+        static_dir = os.path.join(current_dir, 'static')
+        
+        self.app = Flask(__name__, 
+                        template_folder=template_dir,
+                        static_folder=static_dir)
         
         # 创建服务实例
         self.service = LeKiwiService(config.service)
@@ -63,148 +72,7 @@ class LeKiwiHttpController:
         @self.app.route('/')
         def index():
             """主页面 - 提供简单的控制界面"""
-            html_template = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>LeKiwi HTTP Controller</title>
-    <meta charset="utf-8">
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; }
-        .control-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 20px 0; }
-        .control-button { 
-            padding: 20px; font-size: 18px; border: none; border-radius: 5px; 
-            background-color: #007bff; color: white; cursor: pointer;
-            grid-column: span 1;
-        }
-        .control-button:hover { background-color: #0056b3; }
-        .control-button:active { background-color: #004085; }
-        .forward { grid-column: 2; }
-        .left { grid-column: 1; grid-row: 2; }
-        .stop { grid-column: 2; grid-row: 2; background-color: #dc3545; }
-        .stop:hover { background-color: #c82333; }
-        .right { grid-column: 3; grid-row: 2; }
-        .backward { grid-column: 2; grid-row: 3; }
-        .rotate-left { grid-column: 1; grid-row: 4; background-color: #28a745; }
-        .rotate-left:hover { background-color: #218838; }
-        .rotate-right { grid-column: 3; grid-row: 4; background-color: #28a745; }
-        .rotate-right:hover { background-color: #218838; }
-        .status { margin: 20px 0; padding: 10px; border-radius: 5px; }
-        .status.connected { background-color: #d4edda; color: #155724; }
-        .status.disconnected { background-color: #f8d7da; color: #721c24; }
-        .api-info { margin-top: 30px; text-align: left; background-color: #f8f9fa; padding: 15px; border-radius: 5px; }
-        pre { background-color: #e9ecef; padding: 10px; border-radius: 3px; overflow-x: auto; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>LeKiwi HTTP Controller</h1>
-        
-        <div id="status" class="status disconnected">状态: 检查中...</div>
-        
-        <div style="margin-bottom: 20px;">
-            <label for="durationInput" style="display: block; margin-bottom: 5px; font-weight: bold;">移动持续时间 (秒):</label>
-            <input type="number" id="durationInput" min="0" max="10" step="0.1" value="0" 
-                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px;">
-            <small style="color: #666; display: block; margin-top: 2px;">设置为0则持续移动直到手动停止</small>
-        </div>
-        
-        <div class="control-grid">
-            <button class="control-button forward" onclick="sendCommand('forward')">前进 ↑</button>
-            <button class="control-button left" onclick="sendCommand('left')">左转 ←</button>
-            <button class="control-button stop" onclick="sendCommand('stop')">停止 ⏹</button>
-            <button class="control-button right" onclick="sendCommand('right')">右转 →</button>
-            <button class="control-button backward" onclick="sendCommand('backward')">后退 ↓</button>
-            <button class="control-button rotate-left" onclick="sendCommand('rotate_left')">左旋转 ↺</button>
-            <button class="control-button rotate-right" onclick="sendCommand('rotate_right')">右旋转 ↻</button>
-        </div>
-        
-        <div class="api-info">
-            <h3>API接口说明</h3>
-            <p><strong>GET /status</strong> - 获取机器人状态</p>
-            <p><strong>POST /control</strong> - 控制机器人移动</p>
-            <pre>
-请求体示例:
-{
-    "command": "forward",  // 可选值: forward, backward, left, right, rotate_left, rotate_right, stop
-    "duration": 2.5       // 可选: 移动持续时间(秒)，默认为0(持续移动)
-}
-
-或直接指定速度:
-{
-    "x_vel": 0.2,     // 前后速度 (m/s)
-    "y_vel": 0.0,     // 左右速度 (m/s) 
-    "theta_vel": 0.0, // 旋转速度 (deg/s)
-    "duration": 1.0   // 可选: 移动持续时间(秒)，默认为0(持续移动)
-}
-            </pre>
-        </div>
-    </div>
-
-    <script>
-        function updateStatus() {
-            fetch('/status')
-                .then(response => response.json())
-                .then(data => {
-                    const statusDiv = document.getElementById('status');
-                    if (data.connected) {
-                        statusDiv.textContent = '状态: 已连接 - 可以控制';
-                        statusDiv.className = 'status connected';
-                    } else {
-                        statusDiv.textContent = '状态: 未连接 - 需要重启服务';
-                        statusDiv.className = 'status disconnected';
-                    }
-                })
-                .catch(error => {
-                    console.error('获取状态失败:', error);
-                    const statusDiv = document.getElementById('status');
-                    statusDiv.textContent = '状态: 连接错误 - 需要重启服务';
-                    statusDiv.className = 'status disconnected';
-                });
-        }
-
-        function sendCommand(command) {
-            const durationInput = document.getElementById('durationInput');
-            const duration = parseFloat(durationInput.value) || 0;
-            
-            const requestBody = {command: command};
-            if (duration > 0) {
-                requestBody.duration = duration;
-            }
-            
-            fetch('/control', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestBody)
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('命令执行结果:', data);
-                if (data.success) {
-                    if (duration > 0) {
-                        console.log(`机器人将${command}移动${duration}秒`);
-                    }
-                } else {
-                    alert('命令执行失败: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('发送命令失败:', error);
-                alert('发送命令失败: ' + error.message);
-            });
-        }
-
-        // 定期更新状态
-        setInterval(updateStatus, 1000);
-        updateStatus();
-    </script>
-</body>
-</html>
-            """
-            return render_template_string(html_template)
+            return render_template('index.html')
 
         @self.app.route('/status', methods=['GET'])
         def get_status():
