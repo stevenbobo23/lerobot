@@ -34,7 +34,7 @@ class LeKiwiServiceConfig:
     linear_speed: float = 0.2  # 线性速度 m/s
     angular_speed: float = 30.0  # 角速度 deg/s
     # 安全配置
-    command_timeout_s: float = 0.5  # 命令超时时间
+    command_timeout_s: float = 3.0  # 命令超时时间，增加到3秒以适应定时移动
     max_loop_freq_hz: int = 30  # 主循环频率
 
 
@@ -229,7 +229,14 @@ class LeKiwiService:
         # 如果不是停止命令且指定了持续时间，则在指定时间后停止
         if command != "stop" and duration > 0:
             def stop_after_duration():
-                time.sleep(duration)
+                # 在持续时间内持续更新last_command_time以防止超时停止
+                end_time = time.time() + duration
+                while time.time() < end_time:
+                    with self._lock:
+                        self.last_command_time = time.time()
+                    time.sleep(0.1)  # 每100ms更新一次
+                
+                # 时间到达，执行停止命令
                 self.execute_predefined_command("stop")
             
             stop_thread = threading.Thread(target=stop_after_duration, daemon=True)
@@ -253,7 +260,14 @@ class LeKiwiService:
         # 如果指定了持续时间，则在指定时间后停止
         if duration > 0:
             def stop_after_duration():
-                time.sleep(duration)
+                # 在持续时间内持续更新last_command_time以防止超时停止
+                end_time = time.time() + duration
+                while time.time() < end_time:
+                    with self._lock:
+                        self.last_command_time = time.time()
+                    time.sleep(0.1)  # 每100ms更新一次
+                
+                # 时间到达，执行停止命令
                 self.execute_predefined_command("stop")
             
             stop_thread = threading.Thread(target=stop_after_duration, daemon=True)
