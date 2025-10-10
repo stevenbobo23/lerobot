@@ -37,8 +37,6 @@ import logging
 import signal
 from pathlib import Path
 
-# 添加lerobot路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../../..'))
 
 from lekiwi_http_controller import main, LeKiwiHttpControllerConfig
 from lekiwi_service import LeKiwiServiceConfig
