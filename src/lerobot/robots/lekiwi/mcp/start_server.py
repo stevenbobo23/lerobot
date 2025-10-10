@@ -181,9 +181,10 @@ def parse_args():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(description="LeKiwi 集成控制服务")
     parser.add_argument(
-        "--robot-id", 
+        "--robot.id", 
         type=str, 
         default="my_awesome_kiwi",
+        dest="robot_id",  # 将参数名映射到robot_id
         help="机器人 ID 标识符（默认: my_awesome_kiwi）"
     )
     return parser.parse_args()

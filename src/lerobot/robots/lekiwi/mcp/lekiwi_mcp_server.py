@@ -13,7 +13,8 @@ import random
 from typing import Dict, Any, Optional
 
 # 添加父目录到路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../..'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
+sys.path.insert(0, project_root)
 
 # 配置日志
 logging.basicConfig(
@@ -31,7 +32,7 @@ if sys.platform == 'win32':
 from mcp.server.fastmcp import FastMCP
 
 # 导入LeKiwi服务
-from lerobot.robots.lekiwi.lekiwi_service import get_global_service
+from lerobot.robots.lekiwi.mcp.lekiwi_service import get_global_service
 
 # 创建 MCP 服务器
 mcp = FastMCP("LeKiwiController")
