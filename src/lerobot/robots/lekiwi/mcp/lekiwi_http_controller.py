@@ -18,15 +18,29 @@ import json
 import logging
 import threading
 import time
+import sys
+import os
 from dataclasses import dataclass
 from typing import Dict, Any
+
+# 添加项目根目录到路径
+if __name__ == "__main__":
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(current_dir, '../../../../..'))
+    sys.path.insert(0, project_root)
 
 import draccus
 import numpy as np
 from flask import Flask, jsonify, request, render_template
 
-from ..config_lekiwi import LeKiwiConfig
-from .lekiwi_service import LeKiwiService, LeKiwiServiceConfig, get_global_service, set_global_service
+# 条件导入，支持直接运行和模块导入两种方式
+try:
+    from ..config_lekiwi import LeKiwiConfig
+    from .lekiwi_service import LeKiwiService, LeKiwiServiceConfig, get_global_service, set_global_service
+except ImportError:
+    # 直接运行时的导入方式
+    from lerobot.robots.lekiwi.config_lekiwi import LeKiwiConfig
+    from lerobot.robots.lekiwi.mcp.lekiwi_service import LeKiwiService, LeKiwiServiceConfig, get_global_service, set_global_service
 
 
 @dataclass
@@ -170,5 +184,73 @@ def main(cfg: LeKiwiHttpControllerConfig):
     controller.run()
 
 
+def create_default_config(robot_id="my_awesome_kiwi", host="0.0.0.0", port=8080):
+    """创建默认配置"""
+    robot_config = LeKiwiConfig(id=robot_id)
+    
+    service_config = LeKiwiServiceConfig(
+        robot=robot_config,
+        linear_speed=0.2,  # m/s
+        angular_speed=30.0,  # deg/s
+        command_timeout_s=3.0,  # 支持定时移动
+        max_loop_freq_hz=30
+    )
+    
+    return LeKiwiHttpControllerConfig(
+        service=service_config,
+        host=host,
+        port=port
+    )
+
+
 if __name__ == "__main__":
-    main()
+    import argparse
+    
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description="LeKiwi HTTP 控制器")
+    parser.add_argument(
+        "--robot-id", 
+        type=str, 
+        default="my_awesome_kiwi",
+        help="机器人 ID 标识符（默认: my_awesome_kiwi）"
+    )
+    parser.add_argument(
+        "--host", 
+        type=str, 
+        default="0.0.0.0",
+        help="服务器主机地址（默认: 0.0.0.0）"
+    )
+    parser.add_argument(
+        "--port", 
+        type=int, 
+        default=8080,
+        help="服务器端口（默认: 8080）"
+    )
+    
+    args = parser.parse_args()
+    
+    print("=== LeKiwi HTTP 控制器 ===")
+    print(f"机器人 ID: {args.robot_id}")
+    print(f"服务地址: http://{args.host}:{args.port}")
+    print("功能特性:")
+    print("  - 网页控制界面")
+    print("  - REST API 接口")
+    print("  - 定时移动功能")
+    print("  - 键盘控制支持")
+    print("按 Ctrl+C 停止服务")
+    print("=========================")
+    
+    try:
+        # 创建配置并启动服务
+        config = create_default_config(args.robot_id, args.host, args.port)
+        main(config)
+        
+    except KeyboardInterrupt:
+        print("\n收到键盘中断，正在关闭服务...")
+    except Exception as e:
+        print(f"\n启动失败: {e}")
+        print("\n故障排除建议:")
+        print("1. 确保已激活 lerobot 环境")
+        print("2. 检查机器人硬件连接")
+        print("3. 确认端口未被占用")
+        print("4. 检查网络配置")
