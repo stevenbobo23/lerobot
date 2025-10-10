@@ -4,14 +4,20 @@
 LeKiwi HTTP 服务启动脚本
 
 使用方法:
+    # 在项目根目录运行:
+    python src/lerobot/robots/lekiwi/mcp/start_http_server.py [--robot.id ROBOT_ID]
+    
+    # 或者在mcp目录下运行:
+    cd src/lerobot/robots/lekiwi/mcp/
     python start_http_server.py [--robot.id ROBOT_ID]
 
 功能:
     - 启动HTTP服务器(默认端口8080)
     - 提供网页控制界面
     - 支持REST API控制
+    - 支持定时移动功能
 
-控制接口:
+控制界面:
     - 网页界面: http://localhost:8080
     - API端点:
       - GET /status - 获取状态
@@ -25,6 +31,12 @@ LeKiwi HTTP 服务启动脚本
     - rotate_left: 左旋转
     - rotate_right: 右旋转
     - stop: 停止
+
+定时移动示例:
+    {
+        "command": "forward",
+        "duration": 2.5  // 移动2.5秒后自动停止
+    }
 """
 
 import sys
@@ -57,7 +69,7 @@ def create_http_config(robot_id="my_awesome_kiwi"):
         robot=robot_config,
         linear_speed=0.2,  # m/s
         angular_speed=30.0,  # deg/s
-        command_timeout_s=0.5,
+        command_timeout_s=3.0,  # 更新为3秒以支持定时移动
         max_loop_freq_hz=30
     )
     
