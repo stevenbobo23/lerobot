@@ -48,11 +48,26 @@ speed_levels = [
 
 def get_service():
     """获取LeKiwi服务实例"""
-    from lerobot.robots.lekiwi.mcp.lekiwi_service import get_global_service
+    from lerobot.robots.lekiwi.mcp.lekiwi_service import get_global_service, create_default_service, set_global_service
     
     service = get_global_service()
     if service is None:
-        logger.warning("未找到全局LeKiwi服务实例，请确保通过start_server.py启动服务")
+        logger.info("全局服务实例不存在，创建新的LeKiwi服务实例")
+        try:
+            # 创建新的服务实例
+            service = create_default_service()
+            # 尝试连接机器人
+            if service.connect():
+                logger.info("✓ LeKiwi服务创建并连接成功")
+                # 设置为全局服务实例
+                set_global_service(service)
+            else:
+                logger.warning("⚠️ LeKiwi服务创建成功但连接失败，将以离线模式运行")
+                # 设置为全局服务实例以供离线使用
+                set_global_service(service)
+        except Exception as e:
+            logger.error(f"创建LeKiwi服务失败: {e}")
+            return None
     
     return service
 

@@ -45,12 +45,11 @@ class LeKiwiHttpController:
         self.config = config
         self.app = Flask(__name__)
         
-        # 使用全局服务实例，而不创建新的实例
-        self.service = get_global_service()
-        if self.service is None:
-            # 如果全局实例不存在，则创建并设置一个
-            self.service = LeKiwiService(config.service)
-            set_global_service(self.service)
+        # 创建服务实例
+        self.service = LeKiwiService(config.service)
+        
+        # 设置全局服务实例，供MCP使用
+        set_global_service(self.service)
         
         self._setup_routes()
         
@@ -233,7 +232,11 @@ class LeKiwiHttpController:
         """启动HTTP服务器"""
         self.logger.info(f"正在启动LeKiwi HTTP控制器，地址: http://{self.config.host}:{self.config.port}")
         
-        # 不再在这里自动连接，由start_server统一管理连接
+        # 启动时自动连接机器人
+        if self.service.connect():
+            self.logger.info("✓ 机器人连接成功")
+        else:
+            self.logger.warning("⚠️ 机器人连接失败，将以离线模式启动HTTP服务")
         
         self.logger.info("使用浏览器访问控制界面，或通过API发送控制命令")
         
@@ -251,8 +254,7 @@ class LeKiwiHttpController:
 
     def cleanup(self):
         """清理资源"""
-        # 不再在这里断开连接，由start_server统一管理
-        pass
+        self.service.disconnect()
 
 
 @draccus.wrap()
