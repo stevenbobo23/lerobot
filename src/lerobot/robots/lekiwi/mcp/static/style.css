@@ -113,6 +113,61 @@ body {
     border: 2px solid #f5c6cb;
 }
 
+/* 视频流显示区域样式 */
+.video-section {
+    margin: 30px 0;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 10px;
+    border: 2px solid #e0e0e0;
+}
+
+.video-section h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #2c3e50;
+    text-align: center;
+}
+
+.video-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.video-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.video-item h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #34495e;
+    font-size: 16px;
+}
+
+.video-item img {
+    width: 100%;
+    height: auto;
+    border-radius: 5px;
+    border: 2px solid #ddd;
+    background-color: #000;
+    min-height: 200px;
+    object-fit: contain;
+}
+
+.video-item img:hover {
+    border-color: #007bff;
+    box-shadow: 0 4px 8px rgba(0,123,255,0.2);
+}
+
 .api-info { 
     margin-top: 30px; 
     text-align: left; 
@@ -271,6 +326,20 @@ h3 {
     
     .control-grid {
         gap: 8px;
+    }
+    
+    /* 视频区域响应式 */
+    .video-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .video-section {
+        padding: 15px;
+    }
+    
+    .video-item img {
+        min-height: 150px;
     }
     
     .arm-control-section {

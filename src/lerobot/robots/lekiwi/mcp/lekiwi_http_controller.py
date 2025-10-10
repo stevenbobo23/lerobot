@@ -31,7 +31,8 @@ if __name__ == "__main__":
 
 import draccus
 import numpy as np
-from flask import Flask, jsonify, request, render_template
+import cv2
+from flask import Flask, jsonify, request, render_template, Response
 
 # 条件导入，支持直接运行和模块导入两种方式
 try:
@@ -153,6 +154,43 @@ class LeKiwiHttpController:
                     "success": False,
                     "message": str(e)
                 })
+        
+        @self.app.route('/video_feed/<camera>')
+        def video_feed(camera):
+            """视频流端点"""
+            def generate():
+                """生成MJPEG视频流"""
+                while True:
+                    try:
+                        if self.service.robot.is_connected and camera in self.service.robot.cameras:
+                            # 读取摄像头帧
+                            frame = self.service.robot.cameras[camera].read()
+                            if frame is not None:
+                                # 编码为JPEG
+                                ret, jpeg = cv2.imencode('.jpg', frame)
+                                if ret:
+                                    yield (b'--frame\r\n'
+                                           b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
+                        else:
+                            # 如果摄像头不可用，等待一下
+                            time.sleep(0.1)
+                    except Exception as e:
+                        self.logger.error(f"视频流错误: {e}")
+                        time.sleep(0.1)
+            
+            return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+        
+        @self.app.route('/cameras')
+        def get_cameras():
+            """获取可用的摄像头列表"""
+            cameras = []
+            if self.service.robot.is_connected:
+                for cam_name in self.service.robot.cameras.keys():
+                    cameras.append({
+                        'name': cam_name,
+                        'display_name': '前置摄像头' if cam_name == 'front' else '手腕摄像头'
+                    })
+            return jsonify({'cameras': cameras})
 
     def run(self):
         """启动HTTP服务器"""

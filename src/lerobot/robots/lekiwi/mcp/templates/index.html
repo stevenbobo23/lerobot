@@ -12,6 +12,21 @@
         
         <div id="status" class="status disconnected">状态: 检查中...</div>
         
+        <!-- 视频流显示区域 -->
+        <div class="video-section">
+            <h3>摄像头视频</h3>
+            <div class="video-grid">
+                <div class="video-item">
+                    <h4>前置摄像头</h4>
+                    <img id="front-camera" src="{{ url_for('video_feed', camera='front') }}" alt="前置摄像头" />
+                </div>
+                <div class="video-item">
+                    <h4>手腕摄像头</h4>
+                    <img id="wrist-camera" src="{{ url_for('video_feed', camera='wrist') }}" alt="手腕摄像头" />
+                </div>
+            </div>
+        </div>
+        
         <div style="margin-bottom: 20px;">
             <label for="durationInput" style="display: block; margin-bottom: 5px; font-weight: bold;">移动持续时间 (秒):</label>
             <input type="number" id="durationInput" min="0" max="10" step="0.1" value="0" 
