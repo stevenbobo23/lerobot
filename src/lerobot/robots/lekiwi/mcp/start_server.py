@@ -38,8 +38,12 @@ import signal
 from pathlib import Path
 
 
-from lekiwi_http_controller import main, LeKiwiHttpControllerConfig
-from lekiwi_service import LeKiwiServiceConfig
+# 添加lerobot路径
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../..'))
+sys.path.insert(0, project_root)
+
+from lerobot.robots.lekiwi.mcp.lekiwi_http_controller import main, LeKiwiHttpControllerConfig
+from lerobot.robots.lekiwi.mcp.lekiwi_service import LeKiwiServiceConfig
 from lerobot.robots.lekiwi.config_lekiwi import LeKiwiConfig
 
 # 配置日志
