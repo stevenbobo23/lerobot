@@ -247,6 +247,85 @@ def control_gripper(action: str) -> dict:
     
     return result
 
+@mcp.tool()
+def nod_head(times: int = 3, pause_duration: float = 0.3) -> dict:
+    """
+    控制机器人做点头动作
+    
+    通过控制机械臂腕关节弯曲(Wrist Flex)实现点头效果：
+    从0度到60度再回到0度，可重复多次
+    
+    Args:
+        times: 点头次数，默认3次
+        pause_duration: 每次动作之间的停顿时间（秒），默认0.3秒
+        
+    Returns:
+        dict: 包含操作结果的字典
+    """
+    import time
+    
+    logger.info(f"Performing nod head action: {times} times, pause: {pause_duration}s")
+    
+    service = get_service()
+    if service is None:
+        return {
+            "success": False,
+            "error": "LeKiwi服务不可用"
+        }
+    
+    try:
+        results = []
+        
+        for i in range(times):
+            # 向下点头（腕关节弯曲到60度）
+            logger.info(f"Nod {i+1}/{times}: Moving wrist to 60 degrees")
+            down_result = service.set_arm_position({"arm_wrist_flex.pos": 60})
+            results.append({"cycle": i+1, "phase": "down", "position": 60, "success": down_result["success"]})
+            
+            if not down_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"点头动作第{i+1}次失败（向下）: {down_result.get('message', '未知错误')}",
+                    "completed_cycles": i,
+                    "results": results
+                }
+            
+            time.sleep(pause_duration)
+            
+            # 向上抬起（腕关节回到0度）
+            logger.info(f"Nod {i+1}/{times}: Moving wrist to 0 degrees")
+            up_result = service.set_arm_position({"arm_wrist_flex.pos": 0})
+            results.append({"cycle": i+1, "phase": "up", "position": 0, "success": up_result["success"]})
+            
+            if not up_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"点头动作第{i+1}次失败（向上）: {up_result.get('message', '未知错误')}",
+                    "completed_cycles": i,
+                    "results": results
+                }
+            
+            # 最后一次不需要停顿
+            if i < times - 1:
+                time.sleep(pause_duration)
+        
+        logger.info(f"Nod head action completed successfully: {times} cycles")
+        return {
+            "success": True,
+            "message": f"点头动作完成，共{times}次，每次停顿{pause_duration}秒",
+            "cycles": times,
+            "pause_duration": pause_duration,
+            "total_duration": times * pause_duration * 2,
+            "results": results
+        }
+        
+    except Exception as e:
+        logger.error(f"Nod head action failed: {e}")
+        return {
+            "success": False,
+            "error": f"点头动作执行异常: {str(e)}"
+        }
+
 # 启动服务器
 if __name__ == "__main__":
     logger.info("Starting LeKiwi MCP Controller server...")

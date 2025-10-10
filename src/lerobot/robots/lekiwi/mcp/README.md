@@ -100,6 +100,7 @@ python start_server.py mcp
 - `move_robot` - 控制机器人移动
 - `move_robot_with_custom_speed` - 自定义速度移动
 - `control_gripper` - 控制夹爪开关（打开到80度，关闭到0度）
+- `nod_head` - 控制机器人点头（通过腕关节弯曲实现）
 - `set_speed_level` - 设置速度等级
 - `get_robot_status` - 获取机器人状态
 
@@ -110,6 +111,18 @@ control_gripper("open")
 
 # 关闭夹爪到0度
 control_gripper("close")
+```
+
+#### 点头动作示例
+```python
+# 默认点头3次，每次停顿0.3秒
+nod_head()
+
+# 自定义点头5次，每次停顿0.5秒
+nod_head(times=5, pause_duration=0.5)
+
+# 单次点头，停顿0.2秒
+nod_head(times=1, pause_duration=0.2)
 ```
 
 ## 控制命令
