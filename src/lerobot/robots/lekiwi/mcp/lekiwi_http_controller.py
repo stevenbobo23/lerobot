@@ -90,6 +90,12 @@ class LeKiwiHttpController:
         .rotate-left:hover { background-color: #218838; }
         .rotate-right { grid-column: 3; grid-row: 4; background-color: #28a745; }
         .rotate-right:hover { background-color: #218838; }
+        .duration-control { margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 5px; }
+        .duration-input { width: 80px; padding: 5px; border: 1px solid #ddd; border-radius: 3px; text-align: center; }
+        .duration-presets { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+        .duration-preset { padding: 5px 10px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; }
+        .duration-preset:hover { background-color: #0056b3; }
+        .duration-preset.active { background-color: #28a745; }
         .status { margin: 20px 0; padding: 10px; border-radius: 5px; }
         .status.connected { background-color: #d4edda; color: #155724; }
         .status.disconnected { background-color: #f8d7da; color: #721c24; }
@@ -102,6 +108,23 @@ class LeKiwiHttpController:
         <h1>LeKiwi HTTP Controller</h1>
         
         <div id="status" class="status disconnected">状态: 检查中...</div>
+        
+        <div class="duration-control">
+            <h3>移动时间配置</h3>
+            <div style="margin-bottom: 10px;">
+                <label for="moveDuration">持续时间(秒): </label>
+                <input type="number" id="moveDuration" class="duration-input" value="1.0" min="0.1" max="10" step="0.1">
+                <span style="margin-left: 10px; font-size: 12px; color: #666;">设为0表示持续移动</span>
+            </div>
+            <div class="duration-presets">
+                <button class="duration-preset active" onclick="setDuration(0)">持续</button>
+                <button class="duration-preset" onclick="setDuration(0.5)">0.5s</button>
+                <button class="duration-preset" onclick="setDuration(1.0)">1.0s</button>
+                <button class="duration-preset" onclick="setDuration(2.0)">2.0s</button>
+                <button class="duration-preset" onclick="setDuration(3.0)">3.0s</button>
+                <button class="duration-preset" onclick="setDuration(5.0)">5.0s</button>
+            </div>
+        </div>
         
         <div class="control-grid">
             <button class="control-button forward" onclick="sendCommand('forward')">前进 ↑</button>
@@ -120,14 +143,16 @@ class LeKiwiHttpController:
             <pre>
 请求体示例:
 {
-    "command": "forward"  // 可选值: forward, backward, left, right, rotate_left, rotate_right, stop
+    "command": "forward",  // 可选值: forward, backward, left, right, rotate_left, rotate_right, stop
+    "duration": 2.0      // 可选: 移动持续时间(秒)，不设置或为0表示持续移动
 }
 
 或直接指定速度:
 {
     "x_vel": 0.2,     // 前后速度 (m/s)
     "y_vel": 0.0,     // 左右速度 (m/s) 
-    "theta_vel": 0.0  // 旋转速度 (deg/s)
+    "theta_vel": 0.0, // 旋转速度 (deg/s)
+    "duration": 3.0   // 可选: 移动持续时间(秒)
 }
             </pre>
         </div>
@@ -155,19 +180,38 @@ class LeKiwiHttpController:
                 });
         }
 
+        function setDuration(duration) {
+            document.getElementById('moveDuration').value = duration;
+            // 更新按钮状态
+            document.querySelectorAll('.duration-preset').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
         function sendCommand(command) {
+            const duration = parseFloat(document.getElementById('moveDuration').value);
+            const requestBody = { command: command };
+            
+            // 如果设置了持续时间且不是停止命令，则添加duration参数
+            if (duration > 0 && command !== 'stop') {
+                requestBody.duration = duration;
+            }
+            
             fetch('/control', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({command: command})
+                body: JSON.stringify(requestBody)
             })
             .then(response => response.json())
             .then(data => {
                 console.log('命令执行结果:', data);
                 if (!data.success) {
                     alert('命令执行失败: ' + data.message);
+                } else if (duration > 0 && command !== 'stop') {
+                    console.log(`执行${command}命令，持续${duration}秒`);
                 }
             })
             .catch(error => {
@@ -203,16 +247,32 @@ class LeKiwiHttpController:
 
                 # 处理预定义命令
                 if "command" in data:
-                    result = self.service.execute_predefined_command(data["command"])
+                    command = data["command"]
+                    duration = data.get("duration", 0.0)
+                    
+                    # 如果指定了持续时间，使用带时间的移动方法
+                    if duration > 0 and command != "stop":
+                        result = self.service.move_robot_for_duration(command, duration)
+                    else:
+                        result = self.service.execute_predefined_command(command)
+                    
                     return jsonify(result)
                 
                 # 处理自定义速度
                 elif any(key in data for key in ["x_vel", "y_vel", "theta_vel"]):
-                    result = self.service.execute_custom_velocity(
-                        data.get("x_vel", 0.0),
-                        data.get("y_vel", 0.0),
-                        data.get("theta_vel", 0.0)
-                    )
+                    x_vel = data.get("x_vel", 0.0)
+                    y_vel = data.get("y_vel", 0.0)
+                    theta_vel = data.get("theta_vel", 0.0)
+                    duration = data.get("duration", 0.0)
+                    
+                    # 如果指定了持续时间，使用带时间的移动方法
+                    if duration > 0:
+                        result = self.service.move_robot_with_custom_speed_for_duration(
+                            x_vel, y_vel, theta_vel, duration
+                        )
+                    else:
+                        result = self.service.execute_custom_velocity(x_vel, y_vel, theta_vel)
+                    
                     return jsonify(result)
                 
                 else:

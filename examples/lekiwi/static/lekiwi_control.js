@@ -122,6 +122,30 @@ function updateStatusIndicators(status) {
     armStatus.textContent = `机械臂: ${statusTexts[status]}`;
 }
 
+// 移动时间配置函数
+function setDuration(duration) {
+    const durationInput = document.getElementById('moveDuration');
+    if (durationInput) {
+        durationInput.value = duration;
+        
+        // 更新按钮状态
+        document.querySelectorAll('.duration-preset').forEach(btn => {
+            btn.classList.remove('active');
+            btn.classList.remove('bg-green-500');
+            btn.classList.add('bg-blue-500');
+        });
+        
+        // 设置当前按钮为激活状态
+        if (event && event.target) {
+            event.target.classList.add('active');
+            event.target.classList.remove('bg-blue-500');
+            event.target.classList.add('bg-green-500');
+        }
+        
+        console.log('设置移动持续时间:', duration, '秒');
+    }
+}
+
 // 键盘事件监听
 document.addEventListener('keydown', (e) => {
     if (!isConnected) return;
@@ -173,8 +197,35 @@ function setupButtonControl(buttonId, key) {
     const button = document.getElementById(buttonId);
     if (!button) return;
 
-    // 鼠标事件
-    button.addEventListener('mousedown', () => {
+    // 鼠标事件 - 支持时间配置
+    button.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!isConnected) return;
+        
+        const durationInput = document.getElementById('moveDuration');
+        const duration = durationInput ? parseFloat(durationInput.value) : 0;
+        
+        // 如果设置了持续时间，使用定时移动模式
+        if (duration > 0) {
+            const command = keys[key] || key;
+            console.log('点击按钮，定时移动:', buttonId, command, duration, '秒');
+            sendTimedMovement(command);
+            return;
+        }
+        
+        // 否则使用原有的按住逻辑
+        console.log('点击按钮，持续移动:', buttonId, key);
+        // 这里可以继续使用原有的按住逻辑或简单发送一次命令
+    });
+
+    // 保留原有的按住控制逻辑作为备用
+    button.addEventListener('mousedown', (e) => {
+        const durationInput = document.getElementById('moveDuration');
+        const duration = durationInput ? parseFloat(durationInput.value) : 0;
+        
+        // 只有在持续模式(时间为0)时才使用按住控制
+        if (duration > 0) return; // 定时模式不使用按住
+        
         if (!isConnected) return;
         console.log('鼠标按下:', buttonId, key);
         pressedKeys.clear(); // 清除之前按下的键
@@ -191,6 +242,12 @@ function setupButtonControl(buttonId, key) {
     });
 
     const stopMovement = () => {
+        const durationInput = document.getElementById('moveDuration');
+        const duration = durationInput ? parseFloat(durationInput.value) : 0;
+        
+        // 定时模式不需要停止操作
+        if (duration > 0) return;
+        
         if (!isConnected) return;
         console.log('停止运动');
         pressedKeys.clear();
@@ -207,7 +264,21 @@ function setupButtonControl(buttonId, key) {
     // 触摸事件
     button.addEventListener('touchstart', (e) => {
         e.preventDefault();
+        
+        const durationInput = document.getElementById('moveDuration');
+        const duration = durationInput ? parseFloat(durationInput.value) : 0;
+        
         if (!isConnected) return;
+        
+        // 如果设置了持续时间，使用定时移动模式
+        if (duration > 0) {
+            const command = keys[key] || key;
+            console.log('触摸开始，定时移动:', buttonId, command, duration, '秒');
+            sendTimedMovement(command);
+            return;
+        }
+        
+        // 否则使用按住模式
         console.log('触摸开始:', buttonId, key);
         pressedKeys.clear(); // 清除之前按下的键
         pressedKeys.add(key);
@@ -224,6 +295,13 @@ function setupButtonControl(buttonId, key) {
 
     const stopTouchMovement = (e) => {
         e.preventDefault();
+        
+        const durationInput = document.getElementById('moveDuration');
+        const duration = durationInput ? parseFloat(durationInput.value) : 0;
+        
+        // 定时模式不需要停止操作
+        if (duration > 0) return;
+        
         if (!isConnected) return;
         console.log('触摸结束:', buttonId, key);
         pressedKeys.clear();
@@ -251,16 +329,22 @@ setupButtonControl('rotate_left_extra', 'h');
 setupButtonControl('rotate_right_extra', 'j');
 
 // 停止按钮 - 点击立即停止
-document.getElementById('stop').addEventListener('click', () => {
-    if (!isConnected) return;
-    console.log('停止按钮被点击');
-    pressedKeys.clear();
-    activeButtons.forEach(id => {
-        document.getElementById(id)?.classList.remove('active');
+const stopButton = document.getElementById('stop');
+if (stopButton) {
+    stopButton.addEventListener('click', () => {
+        if (!isConnected) return;
+        console.log('停止按钮被点击');
+        pressedKeys.clear();
+        activeButtons.forEach(id => {
+            document.getElementById(id)?.classList.remove('active');
+        });
+        activeButtons.clear();
+        
+        // 发送停止命令，无论是传统模式还是新的HTTP模式
+        sendStopAction();
+        sendTimedMovement('stop'); // 也通过HTTP API发送
     });
-    activeButtons.clear();
-    sendStopAction();
-});
+}
 
 // 发送停止动作到服务器
 async function sendStopAction() {
@@ -275,6 +359,44 @@ async function sendStopAction() {
         });
     } catch (error) {
         console.error('发送停止动作错误:', error);
+    }
+}
+
+// 发送带时间的移动命令到服务器
+async function sendTimedMovement(command) {
+    if (!isConnected) return;
+    
+    const durationInput = document.getElementById('moveDuration');
+    const duration = durationInput ? parseFloat(durationInput.value) : 0;
+    
+    const requestBody = { command: command };
+    
+    // 如果设置了持续时间且不是停止命令，则添加duration参数
+    if (duration > 0 && command !== 'stop') {
+        requestBody.duration = duration;
+    }
+    
+    console.log('发送带时间的移动命令:', requestBody);
+    
+    try {
+        const response = await fetch('/control', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            console.error('移动命令执行失败:', result.message);
+        } else if (duration > 0 && command !== 'stop') {
+            console.log(`执行${command}命令，持续${duration}秒`);
+        }
+        
+    } catch (error) {
+        console.error('发送移动命令错误:', error);
     }
 }
 

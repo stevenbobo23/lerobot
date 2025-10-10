@@ -203,6 +203,38 @@
                 </div>
             </div>
 
+            <!-- 移动时间配置 -->
+            <div class="mb-4">
+                <h2 class="text-sm font-semibold text-gray-700 mb-2">移动时间配置</h2>
+                <div class="bg-gray-50 rounded p-2 mb-2">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <label for="moveDuration" class="text-xs font-medium text-gray-700">
+                            持续时间(秒):
+                        </label>
+                        <input type="number" id="moveDuration" 
+                               class="w-16 px-2 py-1 border border-gray-300 rounded text-xs text-center" 
+                               value="0" min="0" max="10" step="0.1">
+                    </div>
+                    <div class="grid grid-cols-3 gap-1">
+                        <button class="duration-preset bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600 active" 
+                                onclick="setDuration(0)">持续</button>
+                        <button class="duration-preset bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600" 
+                                onclick="setDuration(0.5)">0.5s</button>
+                        <button class="duration-preset bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600" 
+                                onclick="setDuration(1.0)">1.0s</button>
+                        <button class="duration-preset bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600" 
+                                onclick="setDuration(2.0)">2.0s</button>
+                        <button class="duration-preset bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600" 
+                                onclick="setDuration(3.0)">3.0s</button>
+                        <button class="duration-preset bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600" 
+                                onclick="setDuration(5.0)">5.0s</button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">
+                        设为0表示持续移动，其他值表示移动指定时间后自动停止
+                    </p>
+                </div>
+            </div>
+
             <!-- 方向控制 -->
             <div class="mb-4">
                 <div class="control-grid">
