@@ -159,90 +159,108 @@ class IntegratedService:
             await asyncio.sleep(0.1)
     
     async def _handle_mcp_stdio_transport(self, websocket):
-        """处理MCP stdio传输"""
+        """处理MCP stdio传输 - 使用线程方案而非子进程"""
         try:
-            # 直接启动MCP服务器进程
-            import subprocess
+            # 在当前进程中导入MCP服务器
+            import importlib.util
+            import sys
+            
             current_dir = os.path.dirname(os.path.abspath(__file__))
             mcp_server_path = os.path.join(current_dir, "lekiwi_mcp_server.py")
             
-            mcp_process = subprocess.Popen(
-                [sys.executable, mcp_server_path],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=0
+            # 动态导入MCP服务器模块
+            spec = importlib.util.spec_from_file_location("lekiwi_mcp_server", mcp_server_path)
+            mcp_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mcp_module)
+            
+            # 获取MCP服务器实例
+            mcp_server = mcp_module.mcp
+            
+            logger.info("MCP服务器在线程中启动")
+            
+            # 创建输入输出队列来模拟stdio
+            input_queue = asyncio.Queue()
+            output_queue = asyncio.Queue()
+            
+            # 启动MCP服务器任务
+            mcp_task = asyncio.create_task(
+                self._run_mcp_server_in_thread(mcp_server, input_queue, output_queue)
             )
             
-            logger.info("MCP服务器进程已启动")
-            
-            # 创建任务进行数据传输
+            # 启动WebSocket传输任务
             ws_to_mcp_task = asyncio.create_task(
-                self._websocket_to_process(websocket, mcp_process)
+                self._websocket_to_queue(websocket, input_queue)
             )
             mcp_to_ws_task = asyncio.create_task(
-                self._process_to_websocket(mcp_process, websocket)
-            )
-            stderr_task = asyncio.create_task(
-                self._handle_process_stderr(mcp_process)
+                self._queue_to_websocket(output_queue, websocket)
             )
             
             # 等待任意任务完成
             await asyncio.wait([
-                ws_to_mcp_task, mcp_to_ws_task, stderr_task
+                mcp_task, ws_to_mcp_task, mcp_to_ws_task
             ], return_when=asyncio.FIRST_COMPLETED)
             
         except Exception as e:
             logger.error(f"MCP stdio transport error: {e}")
-        finally:
-            # 清理资源
-            if 'mcp_process' in locals():
-                try:
-                    mcp_process.terminate()
-                    mcp_process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    mcp_process.kill()
-                except Exception as e:
-                    logger.error(f"Error terminating MCP process: {e}")
+            import traceback
+            traceback.print_exc()
     
-    async def _websocket_to_process(self, websocket, process):
-        """从 WebSocket 读取数据并发送到进程"""
+    async def _run_mcp_server_in_thread(self, mcp_server, input_queue, output_queue):
+        """在线程中运行MCP服务器"""
+        try:
+            # 创建自定义传输层
+            class QueueTransport:
+                def __init__(self, input_queue, output_queue):
+                    self.input_queue = input_queue
+                    self.output_queue = output_queue
+                    self.running = True
+                
+                async def read_message(self):
+                    try:
+                        message = await self.input_queue.get()
+                        return message
+                    except Exception as e:
+                        logger.error(f"Read message error: {e}")
+                        raise
+                
+                async def write_message(self, message):
+                    try:
+                        await self.output_queue.put(message)
+                    except Exception as e:
+                        logger.error(f"Write message error: {e}")
+                        raise
+                
+                async def close(self):
+                    self.running = False
+            
+            transport = QueueTransport(input_queue, output_queue)
+            
+            # 运行MCP服务器
+            await mcp_server.run(transport=transport)
+            
+        except Exception as e:
+            logger.error(f"MCP server in thread error: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    async def _websocket_to_queue(self, websocket, input_queue):
+        """从 WebSocket 读取数据并放入队列"""
         try:
             async for message in websocket:
                 if isinstance(message, bytes):
                     message = message.decode('utf-8')
-                process.stdin.write(message + '\n')
-                process.stdin.flush()
+                await input_queue.put(message.strip())
         except Exception as e:
-            logger.error(f"WebSocket to process error: {e}")
-        finally:
-            try:
-                process.stdin.close()
-            except:
-                pass
+            logger.error(f"WebSocket to queue error: {e}")
     
-    async def _process_to_websocket(self, process, websocket):
-        """从进程读取数据并发送到 WebSocket"""
+    async def _queue_to_websocket(self, output_queue, websocket):
+        """从队列读取数据并发送到 WebSocket"""
         try:
             while True:
-                line = await asyncio.to_thread(process.stdout.readline)
-                if not line:
-                    break
-                await websocket.send(line.strip())
+                message = await output_queue.get()
+                await websocket.send(message)
         except Exception as e:
-            logger.error(f"Process to WebSocket error: {e}")
-    
-    async def _handle_process_stderr(self, process):
-        """处理进程的stderr输出"""
-        try:
-            while True:
-                line = await asyncio.to_thread(process.stderr.readline)
-                if not line:
-                    break
-                logger.info(f"[MCP stderr] {line.strip()}")
-        except Exception as e:
-            logger.error(f"Process stderr handling error: {e}")
+            logger.error(f"Queue to WebSocket error: {e}")
     
     def _start_http_server(self):
         """在单独线程中启动HTTP服务器"""
@@ -325,13 +343,61 @@ def parse_args():
         dest="robot_id",  # 将参数名映射到robot_id
         help="机器人 ID 标识符（默认: my_awesome_kiwi）"
     )
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="运行测试模式，验证服务初始化"
+    )
     return parser.parse_args()
+
+
+def test_service_initialization(robot_id):
+    """测试服务初始化"""
+    try:
+        print("=== 测试服务初始化 ===")
+        
+        # 创建集成服务
+        service = IntegratedService(robot_id=robot_id)
+        print("✓ 集成服务创建成功")
+        
+        # 检查全局服务实例
+        from lerobot.robots.lekiwi.mcp.lekiwi_service import get_global_service
+        global_service = get_global_service()
+        print(f"✓ 全局服务实例: {global_service is not None}")
+        
+        # 检查MCP服务器能否访问
+        from lerobot.robots.lekiwi.mcp.lekiwi_mcp_server import get_service
+        mcp_service = get_service()
+        print(f"✓ MCP服务器访问: {mcp_service is not None}")
+        
+        if global_service and mcp_service:
+            print(f"✓ 服务实例一致: {global_service is mcp_service}")
+            
+            # 测试服务状态
+            status = global_service.get_status()
+            print(f"✓ 服务状态: 成功={status.get('success', False)}, 连接={status.get('connected', False)}")
+        
+        print("✓ 所有测试通过")
+        return True
+        
+    except Exception as e:
+        print(f"❌ 测试失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 
 if __name__ == "__main__":
     # 解析命令行参数
     args = parse_args()
     
+    if args.test:
+        # 测试模式
+        print("=== LeKiwi 服务测试模式 ===")
+        success = test_service_initialization(args.robot_id)
+        sys.exit(0 if success else 1)
+    
+    # 正常启动模式
     print("=== LeKiwi 集成控制服务 ===")
     print(f"机器人 ID: {args.robot_id}")
     print("正在启动集成服务...")
