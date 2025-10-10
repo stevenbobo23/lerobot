@@ -59,16 +59,64 @@ class MCPWebSocketClient:
         self.mcp_endpoint = os.environ.get('MCP_ENDPOINT')
         if not self.mcp_endpoint:
             self.mcp_endpoint = 'wss://api.xiaozhi.me/mcp/?token=eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEzNTM4MSwiYWdlbnRJZCI6NzEzMzM3LCJlbmRwb2ludElkIjoiYWdlbnRfNzEzMzM3IiwicHVycG9zZSI6Im1jcC1lbmRwb2ludCIsImlhdCI6MTc2MDAzMjg3MSwiZXhwIjoxNzkxNTkwNDcxfQ.a7qRikrHFp_KaOdUglF7DOORaN2wkS3ReNiKmeZiXy-bQf80MNQ98dv5I_ULo5PxvoQI4bW-67YVouXq3kCWNg'
+        
+        # MCP服务器进程，只启动一次
+        self.mcp_process = None
+        self._start_mcp_process()
+    
+    def _start_mcp_process(self):
+        """启动MCP服务器进程（只启动一次）"""
+        if self.mcp_process is not None:
+            return  # 已经启动了，不重复启动
+            
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            mcp_server_path = os.path.join(current_dir, "lekiwi_mcp_server.py")
+            
+            self.mcp_process = subprocess.Popen(
+                [sys.executable, mcp_server_path],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=0
+            )
+            
+            logger.info("✓ MCP服务器进程已启动（只启动一次）")
+            
+        except Exception as e:
+            logger.error(f"启动MCP服务器进程失败: {e}")
+            self.mcp_process = None
+    
+    def _cleanup_mcp_process(self):
+        """清理MCP服务器进程"""
+        if self.mcp_process:
+            try:
+                self.mcp_process.terminate()
+                self.mcp_process.wait(timeout=5)
+                logger.info("MCP服务器进程已终止")
+            except subprocess.TimeoutExpired:
+                self.mcp_process.kill()
+                logger.warning("MCP服务器进程被强制终止")
+            except Exception as e:
+                logger.error(f"终止MCP服务器进程时出错: {e}")
+            finally:
+                self.mcp_process = None
     
     async def start(self):
         """启动MCP WebSocket客户端"""
         reconnect_attempt = 0
         initial_backoff = 1
-        max_backoff = 600
+        max_backoff = 60  # 减少最大等待时间
+        
+        # 检查MCP服务器进程是否正常
+        if self.mcp_process is None:
+            logger.error("MCP服务器进程未成功启动，退出")
+            return
         
         while not shutdown_event:
             try:
-                backoff = min(initial_backoff * (2 ** reconnect_attempt), max_backoff)
+                backoff = min(initial_backoff * (2 ** min(reconnect_attempt, 5)), max_backoff)
                 if reconnect_attempt > 0:
                     logger.info(f"Waiting {backoff}s before MCP reconnection attempt {reconnect_attempt}...")
                     await asyncio.sleep(backoff)
@@ -78,7 +126,7 @@ class MCPWebSocketClient:
                     logger.info("✓ MCP WebSocket连接成功")
                     reconnect_attempt = 0  # 重置重连计数
                     
-                    # 处理MCP通信
+                    # 处理MCP通信（不再重新启动进程）
                     await self._handle_mcp_communication(websocket)
                     
                     if shutdown_event:
@@ -87,37 +135,39 @@ class MCPWebSocketClient:
             except websockets.exceptions.ConnectionClosed as e:
                 reconnect_attempt += 1
                 logger.warning(f"MCP WebSocket connection closed (attempt {reconnect_attempt}): {e}")
+                
+                # 如果是4004错误，等待更久一些
+                if hasattr(e, 'code') and e.code == 4004:
+                    logger.warning("检测到4004内部服务器错误，将等待更久再重试")
+                    await asyncio.sleep(30)  # 等待30秒再重试
+                    
             except Exception as e:
                 reconnect_attempt += 1
                 logger.error(f"MCP WebSocket error (attempt {reconnect_attempt}): {e}")
+        
+        # 清理资源
+        self._cleanup_mcp_process()
     
     async def _handle_mcp_communication(self, websocket):
-        """处理MCP通信"""
+        """处理MCP通信（使用已存在的MCP进程）"""
         try:
-            # 启动MCP服务器进程
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            mcp_server_path = os.path.join(current_dir, "lekiwi_mcp_server.py")
-            
-            mcp_process = subprocess.Popen(
-                [sys.executable, mcp_server_path],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=0
-            )
-            
-            logger.info("MCP服务器进程已启动")
+            # 检查MCP进程是否仍在运行
+            if self.mcp_process is None or self.mcp_process.poll() is not None:
+                logger.warning("MCP服务器进程已终止，重新启动")
+                self._start_mcp_process()
+                
+                if self.mcp_process is None:
+                    raise Exception("Failed to restart MCP process")
             
             # 创建任务进行数据传输
             ws_to_mcp_task = asyncio.create_task(
-                self._websocket_to_process(websocket, mcp_process)
+                self._websocket_to_process(websocket, self.mcp_process)
             )
             mcp_to_ws_task = asyncio.create_task(
-                self._process_to_websocket(mcp_process, websocket)
+                self._process_to_websocket(self.mcp_process, websocket)
             )
             stderr_task = asyncio.create_task(
-                self._handle_process_stderr(mcp_process)
+                self._handle_process_stderr(self.mcp_process)
             )
             
             # 等待任意任务完成
@@ -127,16 +177,6 @@ class MCPWebSocketClient:
             
         except Exception as e:
             logger.error(f"MCP communication error: {e}")
-        finally:
-            # 清理资源
-            if 'mcp_process' in locals():
-                try:
-                    mcp_process.terminate()
-                    mcp_process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    mcp_process.kill()
-                except Exception as e:
-                    logger.error(f"Error terminating MCP process: {e}")
     
     async def _websocket_to_process(self, websocket, process):
         """从 WebSocket 读取数据并发送到进程"""
@@ -212,6 +252,7 @@ async def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
+    client = None
     try:
         # 创建并启动MCP客户端
         client = MCPWebSocketClient()
@@ -229,6 +270,9 @@ async def main():
     except Exception as e:
         logger.error(f"MCP服务启动异常: {e}")
     finally:
+        # 清理资源
+        if client:
+            client._cleanup_mcp_process()
         logger.info("MCP服务已关闭")
 
 

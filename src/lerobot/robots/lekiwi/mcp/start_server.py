@@ -36,10 +36,10 @@ def parse_args():
     
     parser.add_argument(
         'service_type', 
-        choices=['http', 'mcp', 'both'],
+        choices=['http', 'mcp', 'local-mcp', 'both'],
         nargs='?',
         default='both',
-        help='要启动的服务类型 (默认: both)'
+        help='要启动的服务类型: http=HTTP服务, mcp=WebSocket MCP服务, local-mcp=本地MCP服务, both=集成服务 (默认: both)'
     )
     
     parser.add_argument(
@@ -67,9 +67,17 @@ def start_http_service(robot_id):
     cmd = [sys.executable, script_path, "--robot.id", robot_id]
     subprocess.run(cmd)
 
+def start_local_mcp_service():
+    """启动本地MCP服务"""
+    print("启动本地MCP控制服务...")
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.join(current_dir, "start_local_mcp_server.py")
+    
+    cmd = [sys.executable, script_path]
+    subprocess.run(cmd)
 def start_mcp_service(endpoint=None):
-    """启动MCP服务"""
-    print("启动MCP控制服务...")
+    """启动WebSocket MCP服务"""
+    print("启动WebSocket MCP控制服务...")
     current_dir = os.path.dirname(os.path.abspath(__file__))
     script_path = os.path.join(current_dir, "start_mcp_server.py")
     
@@ -103,6 +111,8 @@ def main():
             start_http_service(args.robot_id)
         elif args.service_type == 'mcp':
             start_mcp_service(args.endpoint)
+        elif args.service_type == 'local-mcp':
+            start_local_mcp_service()
         elif args.service_type == 'both':
             start_integrated_service(args.robot_id)
         else:

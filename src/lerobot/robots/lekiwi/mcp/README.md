@@ -16,9 +16,16 @@ LeKiwi 机器人控制系统提供了多种启动方式，支持独立运行HTTP
 - **功能**: 通过MCP协议为AI助手提供机器人控制工具
 - **协议**: WebSocket连接
 - **启动脚本**: `start_mcp_server.py`
+- **注意**: 如果遇到WebSocket连接问题，建议使用本地MCP服务
 
-### 3. 集成服务
-- **功能**: 同时运行HTTP和MCP服务
+### 3. 本地 MCP 控制服务
+- **功能**: 直接运行本地MCP服务器，不依赖WebSocket连接
+- **协议**: 标准输入输出(stdio)
+- **启动脚本**: `start_local_mcp_server.py`
+- **推荐**: 如果不需要远程连接，推荐使用此模式
+
+### 4. 集成服务
+- **功能**: 同时运行HTTP和WebSocket MCP服务
 - **启动脚本**: `start_integrated_server.py`
 
 ## 使用方法
@@ -29,10 +36,13 @@ LeKiwi 机器人控制系统提供了多种启动方式，支持独立运行HTTP
 # 启动HTTP服务
 python start_server.py http --robot.id my_robot
 
-# 启动MCP服务
+# 启动WebSocket MCP服务
 python start_server.py mcp
 
-# 启动集成服务（HTTP + MCP）
+# 启动本地MCP服务（推荐）
+python start_server.py local-mcp
+
+# 启动集成服务（HTTP + WebSocket MCP）
 python start_server.py both --robot.id my_robot
 ```
 
@@ -42,8 +52,11 @@ python start_server.py both --robot.id my_robot
 # 仅启动HTTP服务
 python start_http_server.py --robot.id my_robot
 
-# 仅启动MCP服务
+# 仅启动WebSocket MCP服务
 python start_mcp_server.py
+
+# 仅启动本地MCP服务
+python start_local_mcp_server.py
 
 # 启动集成服务
 python start_integrated_server.py --robot.id my_robot
@@ -102,7 +115,13 @@ python start_server.py mcp
 
 ## 故障排除
 
-### 问题：MCP服务显示"未找到全局LeKiwi服务实例"
+### 问题：WebSocket MCP服务不断重启
+**原因**: WebSocket连接遇到4004内部服务器错误，导致不断重连和重新启动MCP进程。
+**解决方案**: 
+1. 使用本地MCP服务: `python start_server.py local-mcp`
+2. 或者检查MCP WebSocket端点是否正常
+
+### 问题：MCP服务显示“未找到全局LeKiwi服务实例”
 **解决方案**: MCP服务现在会自动创建服务实例，此警告可以忽略。
 
 ### 问题：机器人连接失败
@@ -117,7 +136,8 @@ python start_server.py mcp
 mcp/
 ├── start_server.py              # 统一启动器
 ├── start_http_server.py         # HTTP服务启动器
-├── start_mcp_server.py          # MCP服务启动器  
+├── start_mcp_server.py          # WebSocket MCP服务启动器
+├── start_local_mcp_server.py    # 本地MCP服务启动器  
 ├── start_integrated_server.py   # 集成服务启动器
 ├── lekiwi_http_controller.py    # HTTP控制器实现
 ├── lekiwi_mcp_server.py         # MCP服务器实现
