@@ -330,7 +330,7 @@ def create_default_service() -> LeKiwiService:
         robot=robot_config,
         linear_speed=0.2,
         angular_speed=30.0,
-        command_timeout_s=0.5,
+        command_timeout_s=3,
         max_loop_freq_hz=30
     )
     return LeKiwiService(service_config)
