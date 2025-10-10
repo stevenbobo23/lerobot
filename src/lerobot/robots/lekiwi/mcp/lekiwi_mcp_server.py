@@ -205,4 +205,13 @@ def get_robot_status() -> dict:
 # 启动服务器
 if __name__ == "__main__":
     logger.info("Starting LeKiwi MCP Controller server...")
+    
+    # 在启动MCP服务器前先建立机器人连接
+    logger.info("Initializing robot connection...")
+    service = get_service()
+    if service and service.is_connected():
+        logger.info("✓ Robot connection established successfully")
+    else:
+        logger.warning("⚠️ Robot connection failed, MCP server will run in offline mode")
+    
     mcp.run(transport="stdio")

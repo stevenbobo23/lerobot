@@ -325,7 +325,7 @@ def set_global_service(service: LeKiwiService):
 
 def create_default_service() -> LeKiwiService:
     """创建默认配置的服务实例"""
-    robot_config = LeKiwiConfig()
+    robot_config = LeKiwiConfig(id="my_awesome_kiwi")
     service_config = LeKiwiServiceConfig(
         robot=robot_config,
         linear_speed=0.2,
