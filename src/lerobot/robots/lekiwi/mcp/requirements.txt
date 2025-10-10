@@ -1,0 +1,13 @@
+# LeKiwi HTTP控制器依赖包
+flask>=2.0.0
+numpy
+opencv-python
+draccus
+requests  # 用于测试脚本
+
+# MCP服务依赖
+python-dotenv>=1.0.0
+websockets>=11.0.3 
+mcp>=1.8.1
+pydantic>=2.11.4
+mcp-proxy>=0.8.2
