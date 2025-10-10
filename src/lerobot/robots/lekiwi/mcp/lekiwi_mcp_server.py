@@ -202,6 +202,51 @@ def get_robot_status() -> dict:
     logger.info(f"Robot status: {status}")
     return status
 
+@mcp.tool()
+def control_gripper(action: str) -> dict:
+    """
+    控制机器人夹爪开关
+    
+    Args:
+        action: 夹爪动作 ('open' 打开夹爪到80度, 'close' 关闭夹爪到0度)
+        
+    Returns:
+        dict: 包含操作结果的字典
+    """
+    logger.info(f"Controlling gripper: {action}")
+    
+    service = get_service()
+    if service is None:
+        return {
+            "success": False,
+            "error": "LeKiwi服务不可用"
+        }
+    
+    # 设置夹爪位置
+    if action == "open":
+        gripper_position = 80  # 打开到80度
+        action_desc = "打开"
+    elif action == "close":
+        gripper_position = 0   # 关闭到0度
+        action_desc = "关闭"
+    else:
+        return {
+            "success": False,
+            "error": f"无效的夹爪动作: {action}。请使用 'open' 或 'close'。"
+        }
+    
+    # 发送夹爪位置控制命令
+    arm_positions = {"arm_gripper.pos": gripper_position}
+    result = service.set_arm_position(arm_positions)
+    
+    if result["success"]:
+        result["message"] = f"夹爪已{action_desc}到{gripper_position}度"
+        result["action"] = action
+        result["position"] = gripper_position
+        logger.info(f"Gripper {action} successful: {gripper_position} degrees")
+    
+    return result
+
 # 启动服务器
 if __name__ == "__main__":
     logger.info("Starting LeKiwi MCP Controller server...")

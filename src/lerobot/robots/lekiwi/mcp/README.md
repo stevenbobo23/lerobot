@@ -99,8 +99,18 @@ python start_server.py mcp
 
 - `move_robot` - 控制机器人移动
 - `move_robot_with_custom_speed` - 自定义速度移动
+- `control_gripper` - 控制夹爪开关（打开到80度，关闭到0度）
 - `set_speed_level` - 设置速度等级
 - `get_robot_status` - 获取机器人状态
+
+#### 夹爪控制示例
+```python
+# 打开夹爪到80度
+control_gripper("open")
+
+# 关闭夹爪到0度
+control_gripper("close")
+```
 
 ## 控制命令
 
