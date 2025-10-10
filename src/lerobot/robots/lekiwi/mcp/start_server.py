@@ -61,7 +61,7 @@ shutdown_event = threading.Event()
 
 def create_default_config(robot_id="my_awesome_kiwi"):
     """创建默认配置"""
-    robot_config = LeKiwiConfig(robot_id=robot_id)
+    robot_config = LeKiwiConfig(id=robot_id)
     
     service_config = LeKiwiServiceConfig(
         robot=robot_config,
