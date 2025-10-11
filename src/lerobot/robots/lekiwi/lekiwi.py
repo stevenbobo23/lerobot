@@ -50,6 +50,8 @@ class LeKiwi(Robot):
 
     def __init__(self, config: LeKiwiConfig):
         super().__init__(config)
+        logger.info(f"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+
         self.config = config
         norm_mode_body = MotorNormMode.DEGREES if config.use_degrees else MotorNormMode.RANGE_M100_100
         self.bus = FeetechMotorsBus(
