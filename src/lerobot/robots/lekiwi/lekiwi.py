@@ -124,8 +124,10 @@ class LeKiwi(Robot):
             )
             self.calibrate()
 
+        logger.info(f"Connecting cameras: {list(self.cameras.keys())}")
         for cam in self.cameras.values():
             cam.connect()
+        logger.info(f"All cameras connected successfully")
 
         self.configure()
         logger.info(f"{self} connected.")
