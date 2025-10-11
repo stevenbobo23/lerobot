@@ -128,8 +128,10 @@ def setup_routes():
                         try:
                             frame = service.robot.cameras[camera].async_read(timeout_ms=100)
                             if frame is not None and frame.size > 0:
+                                # 将BGR转换为RGB（OpenCV默认BGR，浏览器需要RGB）
+                                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                                 # 编码为JPEG
-                                ret, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                                ret, jpeg = cv2.imencode('.jpg', frame_rgb, [cv2.IMWRITE_JPEG_QUALITY, 85])
                                 if ret:
                                     yield (b'--frame\r\n'
                                            b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
