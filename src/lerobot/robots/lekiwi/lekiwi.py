@@ -71,6 +71,7 @@ class LeKiwi(Robot):
         )
         self.arm_motors = [motor for motor in self.bus.motors if motor.startswith("arm")]
         self.base_motors = [motor for motor in self.bus.motors if motor.startswith("base")]
+        logger.info(f"Initializing cameras with config: {config.cameras}")
         self.cameras = make_cameras_from_configs(config.cameras)
 
     @property
@@ -383,8 +384,6 @@ class LeKiwi(Robot):
         Returns:
             np.ndarray: the action sent to the motors, potentially clipped.
         """
-        logger.info(f"send_action called with action: {action}")
-        
         if not self.is_connected:
             raise DeviceNotConnectedError(f"{self} is not connected.")
 
