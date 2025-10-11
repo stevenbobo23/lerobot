@@ -30,11 +30,9 @@ from flask import Flask, jsonify, request, render_template, Response
 
 # 条件导入，支持直接运行和模块导入两种方式
 try:
-    from ..config_lekiwi import LeKiwiConfig
     from .lekiwi_service import LeKiwiService, LeKiwiServiceConfig, set_global_service ,create_default_service
 except ImportError:
     # 直接运行时的导入方式
-    from lerobot.robots.lekiwi.config_lekiwi import LeKiwiConfig
     from lerobot.robots.lekiwi.mcp.lekiwi_service import LeKiwiService, LeKiwiServiceConfig, set_global_service,create_default_service
 
 # 全局变量
