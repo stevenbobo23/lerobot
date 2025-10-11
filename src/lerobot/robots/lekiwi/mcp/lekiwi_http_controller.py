@@ -214,7 +214,7 @@ def run_server(host="0.0.0.0", port=8080, robot_id="my_awesome_kiwi"):
                 static_folder=static_dir)
     
     # 创建服务实例
-    service = create_default_service()
+    service = create_default_service(robot_id)
     
     # 设置全局服务实例，供MCP使用
     set_global_service(service)
