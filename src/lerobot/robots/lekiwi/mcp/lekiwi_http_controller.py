@@ -64,7 +64,9 @@ class LeKiwiHttpController:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         template_dir = os.path.join(current_dir, 'templates')
         static_dir = os.path.join(current_dir, 'static')
-        
+        # 配置日志
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
         self.app = Flask(__name__, 
                         template_folder=template_dir,
                         static_folder=static_dir)
@@ -77,9 +79,7 @@ class LeKiwiHttpController:
         
         self._setup_routes()
         
-        # 配置日志
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
+
 
     def _setup_routes(self):
         """设置HTTP路由"""

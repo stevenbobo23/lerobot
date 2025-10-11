@@ -74,7 +74,9 @@ class LeKiwi(Robot):
         self.arm_motors = [motor for motor in self.bus.motors if motor.startswith("arm")]
         self.base_motors = [motor for motor in self.bus.motors if motor.startswith("base")]
         logger.info(f"Initializing cameras with config: {config.cameras}")
+        logger.info(f"Camera config keys: {list(config.cameras.keys()) if config.cameras else 'No cameras configured'}")
         self.cameras = make_cameras_from_configs(config.cameras)
+        logger.info(f"Cameras created: {list(self.cameras.keys()) if self.cameras else 'No cameras created'}")
 
     @property
     def _state_ft(self) -> dict[str, type]:
