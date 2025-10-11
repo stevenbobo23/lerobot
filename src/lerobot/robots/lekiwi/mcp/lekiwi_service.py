@@ -22,7 +22,7 @@ from typing import Dict, Any, Optional
 
 import numpy as np
 
-from ..config_lekiwi import LeKiwiConfig
+from ..config_lekiwi import LeKiwiConfig, lekiwi_cameras_config
 from ..lekiwi import LeKiwi
 
 
