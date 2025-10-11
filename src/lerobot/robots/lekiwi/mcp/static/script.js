@@ -88,7 +88,9 @@ function showNotification(message, type) {
     }, 3000);
 }
 
-// 键盘控制支持
+// 键盘控制支持 - 记录按下的按键
+const pressedKeys = new Set();
+
 document.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase();
     const keyMap = {
@@ -103,7 +105,33 @@ document.addEventListener('keydown', (e) => {
     
     if (keyMap[key]) {
         e.preventDefault();
-        sendCommand(keyMap[key]);
+        // 只有当按键未被按下时才发送命令（防止连续触发）
+        if (!pressedKeys.has(key)) {
+            pressedKeys.add(key);
+            sendCommand(keyMap[key]);
+        }
+    }
+});
+
+// 按键松开时发送停止命令
+document.addEventListener('keyup', (e) => {
+    const key = e.key.toLowerCase();
+    const keyMap = {
+        'w': 'forward',
+        's': 'backward',
+        'a': 'left',
+        'd': 'right',
+        'q': 'rotate_left',
+        'e': 'rotate_right'
+    };
+    
+    if (keyMap[key]) {
+        e.preventDefault();
+        pressedKeys.delete(key);
+        // 按键松开时发送停止命令（除了空格键）
+        if (key !== ' ') {
+            sendCommand('stop');
+        }
     }
 });
 
