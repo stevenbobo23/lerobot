@@ -272,7 +272,14 @@ def main(cfg: LeKiwiHttpControllerConfig):
 
 def create_default_config(robot_id="my_awesome_kiwi", host="0.0.0.0", port=8080):
     """创建默认配置"""
-    robot_config = LeKiwiConfig(id=robot_id)
+    # 导入摄像头配置函数
+    from lerobot.robots.lekiwi.config_lekiwi import lekiwi_cameras_config
+    
+    # 显式创建带摄像头配置的机器人配置
+    robot_config = LeKiwiConfig(
+        id=robot_id,
+        cameras=lekiwi_cameras_config()  # 显式传入摄像头配置
+    )
     
     service_config = LeKiwiServiceConfig(
         robot=robot_config,
