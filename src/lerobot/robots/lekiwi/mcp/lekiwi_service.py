@@ -22,8 +22,11 @@ from typing import Dict, Any, Optional
 
 import numpy as np
 
-from ..config_lekiwi import LeKiwiConfig, lekiwi_cameras_config
+from ..config_lekiwi import LeKiwiConfig
 from ..lekiwi import LeKiwi
+from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig
+from lerobot.cameras.configs import Cv2Rotation
+
 
 
 @dataclass
@@ -373,8 +376,24 @@ def create_default_service(robot_id: str = "my_awesome_kiwi") -> LeKiwiService:
     import logging
     logger = logging.getLogger(__name__)
     
-    # 显式创建带摄像头配置的机器人配置
-    cameras_config = lekiwi_cameras_config()
+    # 直接创建摄像头配置
+    cameras_config = {
+        "front": OpenCVCameraConfig(
+            index_or_path="/dev/video2", 
+            fps=30, 
+            width=640, 
+            height=480, 
+            rotation=Cv2Rotation.ROTATE_180
+        ),
+        "wrist": OpenCVCameraConfig(
+            index_or_path="/dev/video0", 
+            fps=30, 
+            width=480, 
+            height=640, 
+            rotation=Cv2Rotation.ROTATE_90
+        )
+    }
+    
     logger.info(f"创建服务，摄像头配置: {list(cameras_config.keys())}")
     
     robot_config = LeKiwiConfig(
