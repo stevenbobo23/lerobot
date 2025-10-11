@@ -383,6 +383,8 @@ class LeKiwi(Robot):
         Returns:
             np.ndarray: the action sent to the motors, potentially clipped.
         """
+        logger.info(f"send_action called with action: {action}")
+        
         if not self.is_connected:
             raise DeviceNotConnectedError(f"{self} is not connected.")
 
