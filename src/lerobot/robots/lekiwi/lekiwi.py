@@ -49,10 +49,9 @@ class LeKiwi(Robot):
     name = "lekiwi"
 
     def __init__(self, config: LeKiwiConfig):
-        logger.info(f"11111111111111111111111111111111")
+        logger.info(f"Initializing LeKiwi robot with config: {config}")
         super().__init__(config)
-        logger.info(f"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-
+        
         self.config = config
         norm_mode_body = MotorNormMode.DEGREES if config.use_degrees else MotorNormMode.RANGE_M100_100
         self.bus = FeetechMotorsBus(
@@ -113,7 +112,7 @@ class LeKiwi(Robot):
         return self.bus.is_connected and all(cam.is_connected for cam in self.cameras.values())
 
     def connect(self, calibrate: bool = True) -> None:
-        logger.info(f"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy")
+        logger.info(f"Starting connection process for {self}")
 
         if self.is_connected:
             raise DeviceAlreadyConnectedError(f"{self} already connected")
