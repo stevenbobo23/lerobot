@@ -49,6 +49,7 @@ class LeKiwi(Robot):
     name = "lekiwi"
 
     def __init__(self, config: LeKiwiConfig):
+        logger.info(f"11111111111111111111111111111111")
         super().__init__(config)
         logger.info(f"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 
