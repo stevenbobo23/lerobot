@@ -370,7 +370,14 @@ def set_global_service(service: LeKiwiService):
 
 def create_default_service() -> LeKiwiService:
     """创建默认配置的服务实例"""
-    robot_config = LeKiwiConfig(id="my_awesome_kiwi")
+    # 导入摄像头配置函数
+    from .config_lekiwi import lekiwi_cameras_config
+    
+    # 显式创建带摄像头配置的机器人配置
+    robot_config = LeKiwiConfig(
+        id="my_awesome_kiwi",
+        cameras=lekiwi_cameras_config()  # 显式传入摄像头配置
+    )
     service_config = LeKiwiServiceConfig(
         robot=robot_config,
         linear_speed=0.2,

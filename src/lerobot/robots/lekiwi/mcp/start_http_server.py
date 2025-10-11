@@ -63,7 +63,14 @@ logger = logging.getLogger(__name__)
 
 def create_http_config(robot_id="my_awesome_kiwi"):
     """创建HTTP控制器配置"""
-    robot_config = LeKiwiConfig(id=robot_id)
+    # 导入摄像头配置函数
+    from lerobot.robots.lekiwi.config_lekiwi import lekiwi_cameras_config
+    
+    # 显式创建带摄像头配置的机器人配置
+    robot_config = LeKiwiConfig(
+        id=robot_id,
+        cameras=lekiwi_cameras_config()  # 显式传入摄像头配置
+    )
     
     service_config = LeKiwiServiceConfig(
         robot=robot_config,

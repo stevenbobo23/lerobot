@@ -14,14 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import logging
-import threading
 import time
 import sys
 import os
-from dataclasses import dataclass
-from typing import Dict, Any
 
 # 添加项目根目录到路径
 if __name__ == "__main__":
@@ -29,271 +25,235 @@ if __name__ == "__main__":
     project_root = os.path.abspath(os.path.join(current_dir, '../../../../..'))
     sys.path.insert(0, project_root)
 
-import draccus
-import numpy as np
 import cv2
 from flask import Flask, jsonify, request, render_template, Response
 
 # 条件导入，支持直接运行和模块导入两种方式
 try:
     from ..config_lekiwi import LeKiwiConfig
-    from .lekiwi_service import LeKiwiService, LeKiwiServiceConfig, get_global_service, set_global_service
+    from .lekiwi_service import LeKiwiService, LeKiwiServiceConfig, set_global_service ,create_default_service
 except ImportError:
     # 直接运行时的导入方式
     from lerobot.robots.lekiwi.config_lekiwi import LeKiwiConfig
-    from lerobot.robots.lekiwi.mcp.lekiwi_service import LeKiwiService, LeKiwiServiceConfig, get_global_service, set_global_service
+    from lerobot.robots.lekiwi.mcp.lekiwi_service import LeKiwiService, LeKiwiServiceConfig, set_global_service,create_default_service
+
+# 全局变量
+app = None
+service = None
+logger = None
 
 
-@dataclass
-class LeKiwiHttpControllerConfig:
-    """HTTP控制器配置"""
-    service: LeKiwiServiceConfig
-    # HTTP服务配置
-    host: str = "0.0.0.0"
-    port: int = 8080
-
-
-class LeKiwiHttpController:
-    """基于HTTP的LeKiwi小车控制器"""
+def setup_routes():
+    """设置HTTP路由"""
+    global app, service, logger
     
-    def __init__(self, config: LeKiwiHttpControllerConfig):
-        self.config = config
-        
-        # 设置Flask应用的模板和静态文件目录
-        import os
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        template_dir = os.path.join(current_dir, 'templates')
-        static_dir = os.path.join(current_dir, 'static')
-        # 配置日志
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
-        self.app = Flask(__name__, 
-                        template_folder=template_dir,
-                        static_folder=static_dir)
-        
-        # 创建服务实例
-        self.service = LeKiwiService(config.service)
-        
-        # 设置全局服务实例，供MCP使用
-        set_global_service(self.service)
-        
-        self._setup_routes()
-        
+    @app.route('/')
+    def index():
+        """主页面 - 提供简单的控制界面"""
+        return render_template('index.html')
 
+    @app.route('/status', methods=['GET'])
+    def get_status():
+        """获取机器人状态"""
+        return jsonify(service.get_status())
 
-    def _setup_routes(self):
-        """设置HTTP路由"""
-        
-        @self.app.route('/')
-        def index():
-            """主页面 - 提供简单的控制界面"""
-            return render_template('index.html')
-
-        @self.app.route('/status', methods=['GET'])
-        def get_status():
-            """获取机器人状态"""
-            return jsonify(self.service.get_status())
-
-        @self.app.route('/control', methods=['POST'])
-        def control_robot():
-            """控制机器人移动"""
-            try:
-                data = request.get_json()
-                if not data:
-                    return jsonify({
-                        "success": False,
-                        "message": "请求体不能为空"
-                    })
-
-                # 处理预定义命令
-                if "command" in data:
-                    duration = data.get("duration", 0)  # 获取持续时间参数
-                    if duration > 0:
-                        # 有持续时间的移动
-                        result = self.service.move_robot_for_duration(data["command"], duration)
-                    else:
-                        # 无持续时间的移动
-                        result = self.service.execute_predefined_command(data["command"])
-                    return jsonify(result)
-                
-                # 处理机械臂位置控制
-                elif any(key.endswith('.pos') for key in data.keys()):
-                    arm_positions = {k: v for k, v in data.items() if k.endswith('.pos')}
-                    result = self.service.set_arm_position(arm_positions)
-                    return jsonify(result)
-                
-                # 处理自定义速度
-                elif any(key in data for key in ["x_vel", "y_vel", "theta_vel"]):
-                    duration = data.get("duration", 0)  # 获取持续时间参数
-                    if duration > 0:
-                        # 有持续时间的自定义速度移动
-                        result = self.service.move_robot_with_custom_speed_for_duration(
-                            data.get("x_vel", 0.0),
-                            data.get("y_vel", 0.0),
-                            data.get("theta_vel", 0.0),
-                            duration
-                        )
-                    else:
-                        # 无持续时间的自定义速度移动
-                        result = self.service.execute_custom_velocity(
-                            data.get("x_vel", 0.0),
-                            data.get("y_vel", 0.0),
-                            data.get("theta_vel", 0.0)
-                        )
-                    return jsonify(result)
-                
-                else:
-                    return jsonify({
-                        "success": False,
-                        "message": "无效的命令格式"
-                    })
-
-            except Exception as e:
-                self.logger.error(f"控制命令执行失败: {e}")
+    @app.route('/control', methods=['POST'])
+    def control_robot():
+        """控制机器人移动"""
+        try:
+            data = request.get_json()
+            if not data:
                 return jsonify({
                     "success": False,
-                    "message": str(e)
+                    "message": "请求体不能为空"
                 })
-        
-        @self.app.route('/video_feed/<camera>')
-        def video_feed(camera):
-            """视频流端点"""
-            def generate():
-                """生成MJPEG视频流"""
-                while True:
-                    try:
-                        if self.service.robot.is_connected and camera in self.service.robot.cameras:
-                            # 使用async_read方法读取摄像头帧，设置较短的超时时间
-                            try:
-                                frame = self.service.robot.cameras[camera].async_read(timeout_ms=100)
-                                if frame is not None and frame.size > 0:
-                                    # 编码为JPEG
-                                    ret, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
-                                    if ret:
-                                        yield (b'--frame\r\n'
-                                               b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
-                                else:
-                                    # 如果没有有效帧，等待一下
-                                    time.sleep(0.05)
-                            except Exception as cam_e:
-                                self.logger.debug(f"摄像头 {camera} 读取错误: {cam_e}")
-                                time.sleep(0.1)
-                        else:
-                            # 如果摄像头不可用，等待一下
-                            time.sleep(0.1)
-                    except Exception as e:
-                        self.logger.error(f"视频流错误: {e}")
-                        time.sleep(0.1)
+
+            # 处理预定义命令
+            if "command" in data:
+                duration = data.get("duration", 0)  # 获取持续时间参数
+                if duration > 0:
+                    # 有持续时间的移动
+                    result = service.move_robot_for_duration(data["command"], duration)
+                else:
+                    # 无持续时间的移动
+                    result = service.execute_predefined_command(data["command"])
+                return jsonify(result)
             
-            return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
-        
-        @self.app.route('/cameras')
-        def get_cameras():
-            """获取可用的摄像头列表"""
-            cameras = []
-            camera_status = {}
+            # 处理机械臂位置控制
+            elif any(key.endswith('.pos') for key in data.keys()):
+                arm_positions = {k: v for k, v in data.items() if k.endswith('.pos')}
+                result = service.set_arm_position(arm_positions)
+                return jsonify(result)
             
-            if self.service.robot.is_connected:
-                for cam_name, cam in self.service.robot.cameras.items():
-                    try:
-                        # 检查摄像头连接状态
-                        is_connected = cam.is_connected
-                        # 尝试读取一帧来测试
-                        test_frame = None
-                        if is_connected:
-                            try:
-                                test_frame = cam.async_read(timeout_ms=100)
-                                frame_available = test_frame is not None and test_frame.size > 0
-                            except Exception as e:
-                                frame_available = False
-                                camera_status[cam_name] = str(e)
-                        else:
-                            frame_available = False
-                            
-                        cameras.append({
-                            'name': cam_name,
-                            'display_name': '前置摄像头' if cam_name == 'front' else '手腕摄像头',
-                            'connected': is_connected,
-                            'frame_available': frame_available,
-                            'frame_shape': test_frame.shape if test_frame is not None else None
-                        })
-                        
-                    except Exception as e:
-                        cameras.append({
-                            'name': cam_name,
-                            'display_name': '前置摄像头' if cam_name == 'front' else '手腕摄像头',
-                            'connected': False,
-                            'frame_available': False,
-                            'error': str(e)
-                        })
-                        camera_status[cam_name] = str(e)
+            # 处理自定义速度
+            elif any(key in data for key in ["x_vel", "y_vel", "theta_vel"]):
+                duration = data.get("duration", 0)  # 获取持续时间参数
+                if duration > 0:
+                    # 有持续时间的自定义速度移动
+                    result = service.move_robot_with_custom_speed_for_duration(
+                        data.get("x_vel", 0.0),
+                        data.get("y_vel", 0.0),
+                        data.get("theta_vel", 0.0),
+                        duration
+                    )
+                else:
+                    # 无持续时间的自定义速度移动
+                    result = service.execute_custom_velocity(
+                        data.get("x_vel", 0.0),
+                        data.get("y_vel", 0.0),
+                        data.get("theta_vel", 0.0)
+                    )
+                return jsonify(result)
             
+            else:
+                return jsonify({
+                    "success": False,
+                    "message": "无效的命令格式"
+                })
+
+        except Exception as e:
+            logger.error(f"控制命令执行失败: {e}")
             return jsonify({
-                'cameras': cameras, 
-                'robot_connected': self.service.robot.is_connected,
-                'camera_status': camera_status
+                "success": False,
+                "message": str(e)
             })
-
-    def run(self):
-        """启动HTTP服务器"""
-        self.logger.info(f"正在启动LeKiwi HTTP控制器，地址: http://{self.config.host}:{self.config.port}")
-        
-        # 启动时自动连接机器人
-        if self.service.connect():
-            self.logger.info("✓ 机器人连接成功")
-        else:
-            self.logger.warning("⚠️ 机器人连接失败，将以离线模式启动HTTP服务")
-        
-        self.logger.info("使用浏览器访问控制界面，或通过API发送控制命令")
-        
-        try:
-            self.app.run(
-                host=self.config.host,
-                port=self.config.port,
-                debug=False,
-                threaded=True
-            )
-        except KeyboardInterrupt:
-            self.logger.info("收到中断信号，正在关闭...")
-        finally:
-            self.cleanup()
-
-    def cleanup(self):
-        """清理资源"""
-        self.service.disconnect()
-
-
-@draccus.wrap()
-def main(cfg: LeKiwiHttpControllerConfig):
-    """主函数"""
-    controller = LeKiwiHttpController(cfg)
-    controller.run()
-
-
-def create_default_config(robot_id="my_awesome_kiwi", host="0.0.0.0", port=8080):
-    """创建默认配置"""
-    # 导入摄像头配置函数
-    from lerobot.robots.lekiwi.config_lekiwi import lekiwi_cameras_config
     
-    # 显式创建带摄像头配置的机器人配置
-    robot_config = LeKiwiConfig(
-        id=robot_id,
-        cameras=lekiwi_cameras_config()  # 显式传入摄像头配置
-    )
+    @app.route('/video_feed/<camera>')
+    def video_feed(camera):
+        """视频流端点"""
+        def generate():
+            """生成MJPEG视频流"""
+            while True:
+                try:
+                    if service.robot.is_connected and camera in service.robot.cameras:
+                        # 使用async_read方法读取摄像头帧，设置较短的超时时间
+                        try:
+                            frame = service.robot.cameras[camera].async_read(timeout_ms=100)
+                            if frame is not None and frame.size > 0:
+                                # 编码为JPEG
+                                ret, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                                if ret:
+                                    yield (b'--frame\r\n'
+                                           b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
+                            else:
+                                # 如果没有有效帧，等待一下
+                                time.sleep(0.05)
+                        except Exception as cam_e:
+                            logger.debug(f"摄像头 {camera} 读取错误: {cam_e}")
+                            time.sleep(0.1)
+                    else:
+                        # 如果摄像头不可用，等待一下
+                        time.sleep(0.1)
+                except Exception as e:
+                    logger.error(f"视频流错误: {e}")
+                    time.sleep(0.1)
+        
+        return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
     
-    service_config = LeKiwiServiceConfig(
-        robot=robot_config,
-        linear_speed=0.2,  # m/s
-        angular_speed=30.0,  # deg/s
-        command_timeout_s=3.0,  # 支持定时移动
-        max_loop_freq_hz=30
-    )
+    @app.route('/cameras')
+    def get_cameras():
+        """获取可用的摄像头列表"""
+        cameras = []
+        camera_status = {}
+        
+        if service.robot.is_connected:
+            for cam_name, cam in service.robot.cameras.items():
+                try:
+                    # 检查摄像头连接状态
+                    is_connected = cam.is_connected
+                    # 尝试读取一帧来测试
+                    test_frame = None
+                    if is_connected:
+                        try:
+                            test_frame = cam.async_read(timeout_ms=100)
+                            frame_available = test_frame is not None and test_frame.size > 0
+                        except Exception as e:
+                            frame_available = False
+                            camera_status[cam_name] = str(e)
+                    else:
+                        frame_available = False
+                        
+                    cameras.append({
+                        'name': cam_name,
+                        'display_name': '前置摄像头' if cam_name == 'front' else '手腕摄像头',
+                        'connected': is_connected,
+                        'frame_available': frame_available,
+                        'frame_shape': test_frame.shape if test_frame is not None else None
+                    })
+                    
+                except Exception as e:
+                    cameras.append({
+                        'name': cam_name,
+                        'display_name': '前置摄像头' if cam_name == 'front' else '手腕摄像头',
+                        'connected': False,
+                        'frame_available': False,
+                        'error': str(e)
+                    })
+                    camera_status[cam_name] = str(e)
+        
+        return jsonify({
+            'cameras': cameras, 
+            'robot_connected': service.robot.is_connected,
+            'camera_status': camera_status
+        })
+
+
+def run_server(host="0.0.0.0", port=8080, robot_id="my_awesome_kiwi"):
+    """启动HTTP服务器"""
+    global app, service, logger
     
-    return LeKiwiHttpControllerConfig(
-        service=service_config,
-        host=host,
-        port=port
-    )
+    # 配置日志
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    
+    # 设置Flask应用的模板和静态文件目录
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    template_dir = os.path.join(current_dir, 'templates')
+    static_dir = os.path.join(current_dir, 'static')
+    
+    app = Flask(__name__, 
+                template_folder=template_dir,
+                static_folder=static_dir)
+    
+    # 创建服务实例
+    service = create_default_service()
+    
+    # 设置全局服务实例，供MCP使用
+    set_global_service(service)
+    
+    # 设置路由
+    setup_routes()
+    
+    logger.info(f"正在启动LeKiwi HTTP控制器，地址: http://{host}:{port}")
+    
+    # 启动时自动连接机器人
+    if service.connect():
+        logger.info("✓ 机器人连接成功")
+    else:
+        logger.warning("⚠️ 机器人连接失败，将以离线模式启动HTTP服务")
+    
+    logger.info("使用浏览器访问控制界面，或通过API发送控制命令")
+    
+    try:
+        app.run(
+            host=host,
+            port=port,
+            debug=False,
+            threaded=True
+        )
+    except KeyboardInterrupt:
+        logger.info("收到中断信号，正在关闭...")
+    finally:
+        cleanup()
+
+
+def cleanup():
+    """清理资源"""
+    global service
+    if service:
+        service.disconnect()
+
+
 
 
 if __name__ == "__main__":
@@ -334,9 +294,8 @@ if __name__ == "__main__":
     print("=========================")
     
     try:
-        # 创建配置并启动服务
-        config = create_default_config(args.robot_id, args.host, args.port)
-        main(config)
+        # 直接启动服务
+        run_server(args.host, args.port, args.robot_id)
         
     except KeyboardInterrupt:
         print("\n收到键盘中断，正在关闭服务...")
