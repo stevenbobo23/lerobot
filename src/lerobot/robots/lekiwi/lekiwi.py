@@ -112,6 +112,8 @@ class LeKiwi(Robot):
         return self.bus.is_connected and all(cam.is_connected for cam in self.cameras.values())
 
     def connect(self, calibrate: bool = True) -> None:
+        logger.info(f"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy")
+
         if self.is_connected:
             raise DeviceAlreadyConnectedError(f"{self} already connected")
 
