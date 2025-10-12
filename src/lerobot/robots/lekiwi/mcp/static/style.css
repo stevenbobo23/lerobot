@@ -249,11 +249,17 @@ h3 {
 
 .slider-grid {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 6px;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
     margin-bottom: 10px;
     flex: 1;
     overflow-y: hidden;
+}
+
+.slider-column {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .slider-item {
