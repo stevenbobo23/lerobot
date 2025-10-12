@@ -12,94 +12,108 @@
         
         <div id="status" class="status disconnected">状态: 检查中...</div>
         
-        <!-- 视频流显示区域 -->
-        <div class="video-section">
-            <h3>摄像头视频</h3>
-            <div class="video-grid">
-                <div class="video-item">
-                    <h4>前置摄像头</h4>
-                    <img id="front-camera" src="{{ url_for('video_feed', camera='front') }}" alt="前置摄像头" />
-                </div>
-                <div class="video-item">
-                    <h4>手腕摄像头</h4>
-                    <img id="wrist-camera" src="{{ url_for('video_feed', camera='wrist') }}" alt="手腕摄像头" />
-                </div>
-            </div>
-        </div>
-        
-        <div style="margin-bottom: 20px;">
-            <label for="durationInput" style="display: block; margin-bottom: 5px; font-weight: bold;">移动持续时间 (秒):</label>
-            <input type="number" id="durationInput" min="0" max="10" step="0.1" value="0" 
-                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px;">
-            <small style="color: #666; display: block; margin-top: 2px;">设置为0则持续移动直到手动停止</small>
-        </div>
-        
-        <div class="control-grid">
-            <button class="control-button forward" onmousedown="sendCommand('forward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('forward')" ontouchend="sendCommand('stop')">前进 ↑</button>
-            <button class="control-button left" onmousedown="sendCommand('left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('left')" ontouchend="sendCommand('stop')">左转 ←</button>
-            <button class="control-button stop" onclick="sendCommand('stop')">停止 ⏹</button>
-            <button class="control-button right" onmousedown="sendCommand('right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('right')" ontouchend="sendCommand('stop')">右转 →</button>
-            <button class="control-button backward" onmousedown="sendCommand('backward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('backward')" ontouchend="sendCommand('stop')">后退 ↓</button>
-            <button class="control-button rotate-left" onmousedown="sendCommand('rotate_left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_left')" ontouchend="sendCommand('stop')">左旋转 ↺</button>
-            <button class="control-button rotate-right" onmousedown="sendCommand('rotate_right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_right')" ontouchend="sendCommand('stop')">右旋转 ↻</button>
-        </div>
-        
-        <!-- 机械臂控制区域 -->
-        <div class="arm-control-section">
-            <h3>机械臂控制</h3>
-            <div class="slider-grid">
-                <div class="slider-item">
-                    <label for="shoulder-pan">肩膏水平 (Pan)</label>
-                    <input type="range" id="shoulder-pan" class="arm-slider" 
-                           min="-100" max="100" value="0" step="1"
-                           data-joint="arm_shoulder_pan.pos">
-                    <span class="slider-value" id="shoulder-pan-value">0</span>
+        <!-- 双栏布局 -->
+        <div class="main-layout">
+            <!-- 左侧面板 -->
+            <div class="left-panel">
+                <!-- 左上：移动控制 -->
+                <div class="move-control-section">
+                    <h3>移动控制</h3>
+                    <div style="margin-bottom: 20px;">
+                        <label for="durationInput" style="display: block; margin-bottom: 5px; font-weight: bold;">移动持续时间 (秒):</label>
+                        <input type="number" id="durationInput" min="0" max="10" step="0.1" value="0" 
+                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px;">
+                        <small style="color: #666; display: block; margin-top: 2px;">设置为0则持续移动直到手动停止</small>
+                    </div>
+                    
+                    <div class="control-grid">
+                        <button class="control-button forward" onmousedown="sendCommand('forward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('forward')" ontouchend="sendCommand('stop')">前进 ↑</button>
+                        <button class="control-button left" onmousedown="sendCommand('left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('left')" ontouchend="sendCommand('stop')">左转 ←</button>
+                        <button class="control-button stop" onclick="sendCommand('stop')">停止 ⏹</button>
+                        <button class="control-button right" onmousedown="sendCommand('right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('right')" ontouchend="sendCommand('stop')">右转 →</button>
+                        <button class="control-button backward" onmousedown="sendCommand('backward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('backward')" ontouchend="sendCommand('stop')">后退 ↓</button>
+                        <button class="control-button rotate-left" onmousedown="sendCommand('rotate_left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_left')" ontouchend="sendCommand('stop')">左旋转 ↺</button>
+                        <button class="control-button rotate-right" onmousedown="sendCommand('rotate_right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_right')" ontouchend="sendCommand('stop')">右旋转 ↻</button>
+                    </div>
                 </div>
                 
-                <div class="slider-item">
-                    <label for="shoulder-lift">肩膏垂直 (Lift)</label>
-                    <input type="range" id="shoulder-lift" class="arm-slider" 
-                           min="-100" max="100" value="0" step="1"
-                           data-joint="arm_shoulder_lift.pos">
-                    <span class="slider-value" id="shoulder-lift-value">0</span>
-                </div>
-                
-                <div class="slider-item">
-                    <label for="elbow-flex">肘关节 (Elbow)</label>
-                    <input type="range" id="elbow-flex" class="arm-slider" 
-                           min="-100" max="100" value="0" step="1"
-                           data-joint="arm_elbow_flex.pos">
-                    <span class="slider-value" id="elbow-flex-value">0</span>
-                </div>
-                
-                <div class="slider-item">
-                    <label for="wrist-flex">腕关节弯曲 (Wrist Flex)</label>
-                    <input type="range" id="wrist-flex" class="arm-slider" 
-                           min="-100" max="100" value="0" step="1"
-                           data-joint="arm_wrist_flex.pos">
-                    <span class="slider-value" id="wrist-flex-value">0</span>
-                </div>
-                
-                <div class="slider-item">
-                    <label for="wrist-roll">腕关节旋转 (Wrist Roll)</label>
-                    <input type="range" id="wrist-roll" class="arm-slider" 
-                           min="-100" max="100" value="0" step="1"
-                           data-joint="arm_wrist_roll.pos">
-                    <span class="slider-value" id="wrist-roll-value">0</span>
-                </div>
-                
-                <div class="slider-item">
-                    <label for="gripper">夹爪 (Gripper)</label>
-                    <input type="range" id="gripper" class="arm-slider" 
-                           min="0" max="100" value="0" step="1"
-                           data-joint="arm_gripper.pos">
-                    <span class="slider-value" id="gripper-value">0</span>
+                <!-- 左下：机械臂控制 -->
+                <div class="arm-control-section">
+                    <h3>机械臂控制</h3>
+                    <div class="slider-grid">
+                        <div class="slider-item">
+                            <label for="shoulder-pan">肩膏水平 (Pan)</label>
+                            <input type="range" id="shoulder-pan" class="arm-slider" 
+                                   min="-100" max="100" value="0" step="1"
+                                   data-joint="arm_shoulder_pan.pos">
+                            <span class="slider-value" id="shoulder-pan-value">0</span>
+                        </div>
+                        
+                        <div class="slider-item">
+                            <label for="shoulder-lift">肩膏垂直 (Lift)</label>
+                            <input type="range" id="shoulder-lift" class="arm-slider" 
+                                   min="-100" max="100" value="0" step="1"
+                                   data-joint="arm_shoulder_lift.pos">
+                            <span class="slider-value" id="shoulder-lift-value">0</span>
+                        </div>
+                        
+                        <div class="slider-item">
+                            <label for="elbow-flex">肘关节 (Elbow)</label>
+                            <input type="range" id="elbow-flex" class="arm-slider" 
+                                   min="-100" max="100" value="0" step="1"
+                                   data-joint="arm_elbow_flex.pos">
+                            <span class="slider-value" id="elbow-flex-value">0</span>
+                        </div>
+                        
+                        <div class="slider-item">
+                            <label for="wrist-flex">腕关节弯曲 (Wrist Flex)</label>
+                            <input type="range" id="wrist-flex" class="arm-slider" 
+                                   min="-100" max="100" value="0" step="1"
+                                   data-joint="arm_wrist_flex.pos">
+                            <span class="slider-value" id="wrist-flex-value">0</span>
+                        </div>
+                        
+                        <div class="slider-item">
+                            <label for="wrist-roll">腕关节旋转 (Wrist Roll)</label>
+                            <input type="range" id="wrist-roll" class="arm-slider" 
+                                   min="-100" max="100" value="0" step="1"
+                                   data-joint="arm_wrist_roll.pos">
+                            <span class="slider-value" id="wrist-roll-value">0</span>
+                        </div>
+                        
+                        <div class="slider-item">
+                            <label for="gripper">夹爪 (Gripper)</label>
+                            <input type="range" id="gripper" class="arm-slider" 
+                                   min="0" max="100" value="0" step="1"
+                                   data-joint="arm_gripper.pos">
+                            <span class="slider-value" id="gripper-value">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="arm-buttons">
+                        <button class="arm-button" onclick="resetArmToHome()">复位到初始位置</button>
+                        <button class="arm-button" onclick="getCurrentArmPosition()">获取当前位置</button>
+                    </div>
                 </div>
             </div>
             
-            <div class="arm-buttons">
-                <button class="arm-button" onclick="resetArmToHome()">复位到初始位置</button>
-                <button class="arm-button" onclick="getCurrentArmPosition()">获取当前位置</button>
+            <!-- 右侧面板 -->
+            <div class="right-panel">
+                <!-- 右上：前置摄像头 -->
+                <div class="camera-section front-camera-section">
+                    <h3>前置摄像头</h3>
+                    <div class="camera-item">
+                        <img id="front-camera" src="{{ url_for('video_feed', camera='front') }}" alt="前置摄像头" />
+                    </div>
+                </div>
+                
+                <!-- 右下：手臂摄像头 -->
+                <div class="camera-section arm-camera-section">
+                    <h3>手臂摄像头</h3>
+                    <div class="camera-item">
+                        <img id="wrist-camera" src="{{ url_for('video_feed', camera='wrist') }}" alt="手腕摄像头" />
+                    </div>
+                </div>
             </div>
         </div>
         

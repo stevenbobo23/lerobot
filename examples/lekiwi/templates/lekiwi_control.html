@@ -49,77 +49,8 @@
             backdrop-filter: blur(10px);
             background-color: rgba(0, 0, 0, 0.8);
         }
-        /* 左右布局样式 */
-        .main-container {
-            display: flex;
-            flex-direction: row;
-            height: 100vh;
-        }
-        
-        .left-panel {
-            width: 50%;
-            display: flex;
-            flex-direction: column;
-            background: white;
-            border-right: 2px solid #e5e7eb;
-        }
-        
-        .right-panel {
-            width: 50%;
-            display: flex;
-            flex-direction: column;
-            background: black;
-        }
-        
-        .control-section {
-            flex: 1;
-            padding: 16px;
-            overflow-y: auto;
-        }
-        
-        .movement-control {
-            border-bottom: 1px solid #e5e7eb;
-            padding-bottom: 16px;
-            margin-bottom: 16px;
-        }
-        
-        .arm-control {
-            flex: 1;
-        }
-        
-        .camera-section {
-            flex: 1;
-            position: relative;
-            padding: 8px;
-        }
-        
-        .camera-container {
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(45deg, #1f2937, #374151);
-            border-radius: 12px;
-            overflow: hidden;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
         /* 移动端优化 */
         @media (max-width: 768px) {
-            .main-container {
-                flex-direction: column;
-            }
-            .left-panel, .right-panel {
-                width: 100%;
-            }
-            .left-panel {
-                height: 60vh;
-            }
-            .right-panel {
-                height: 40vh;
-                flex-direction: row;
-            }
             .control-grid {
                 display: grid;
                 grid-template-columns: repeat(3, 1fr);
@@ -138,14 +69,34 @@
                 box-shadow: none;
                 border-radius: 4px;
             }
+            .main-container {
+                flex-direction: column;
+            }
+            .control-panel {
+                width: 100%;
+                max-height: 50vh;
+                overflow-y: auto;
+            }
+            .video-panel {
+                width: 100%;
+                height: 50vh;
+            }
         }
-        
         @media (min-width: 769px) {
             .control-grid {
                 display: grid;
                 grid-template-columns: repeat(3, 1fr);
                 gap: 6px;
                 margin-bottom: 10px;
+            }
+            .main-container {
+                flex-direction: row;
+            }
+            .control-panel {
+                width: 33.333333%;
+            }
+            .video-panel {
+                width: 66.666667%;
             }
         }
         /* 为所有设备统一按钮样式 */
@@ -213,11 +164,11 @@
         </div>
     </div>
 
-    <div class="main-container">
+    <div class="main-container flex h-full">
         <!-- 左侧控制面板 -->
-        <div class="left-panel">
+        <div class="control-panel bg-white shadow-lg p-4 flex flex-col">
             <!-- 头部状态栏 -->
-            <div class="p-4 border-b border-gray-200">
+            <div class="mb-4">
                 <div class="flex items-center justify-between mb-3">
                     <h1 class="text-xl font-bold text-gray-800">LeKiwi 控制台</h1>
                     <button id="disconnectBtn" onclick="disconnectRobot()" 
@@ -236,117 +187,101 @@
                 </div>
             </div>
 
-            <!-- 上半部分：移动控制 -->
-            <div class="movement-control control-section">
-                <h2 class="text-lg font-semibold text-gray-800 mb-4">移动控制</h2>
-                
-                <!-- 速度控制 -->
-                <div class="mb-4">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-2">速度控制</h3>
-                    <div class="flex space-x-1">
-                        <button id="speed_down" class="control-btn speed-control-btn flex-1 bg-blue-500 text-white py-2 px-2 rounded font-medium hover:bg-blue-600 text-sm">
-                            减速 (F)
-                        </button>
-                        <span id="speed-display" class="flex-1 bg-gray-200 py-2 px-2 rounded text-center text-sm flex items-center justify-center">
-                            中速
-                        </span>
-                        <button id="speed_up" class="control-btn speed-control-btn flex-1 bg-blue-500 text-white py-2 px-2 rounded font-medium hover:bg-blue-600 text-sm">
-                            加速 (R)
-                        </button>
-                    </div>
-                </div>
-
-                <!-- 方向控制 -->
-                <div class="mb-4">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-2">方向控制</h3>
-                    <div class="control-grid">
-                        <button id="rotate_left" class="control-btn bg-yellow-500 text-white rounded font-medium hover:bg-yellow-600">
-                            左旋转 (H)
-                        </button>
-                        <button id="forward" class="control-btn bg-blue-500 text-white rounded font-medium hover:bg-blue-600">
-                            前进 (W)
-                        </button>
-                        <button id="rotate_right" class="control-btn bg-yellow-500 text-white rounded font-medium hover:bg-yellow-600">
-                            右旋转 (J)
-                        </button>
-                        
-                        <button id="left" class="control-btn bg-blue-500 text-white rounded font-medium hover:bg-blue-600">
-                            左转 (A)
-                        </button>
-                        <button id="stop" class="control-btn bg-gray-500 text-white rounded font-medium hover:bg-gray-600">
-                            停止 (空格)
-                        </button>
-                        <button id="right" class="control-btn bg-blue-500 text-white rounded font-medium hover:bg-blue-600">
-                            右转 (D)
-                        </button>
-                        
-                        <div></div>
-                        <button id="backward" class="control-btn bg-blue-500 text-white rounded font-medium hover:bg-blue-600">
-                            后退 (S)
-                        </button>
-                        <div></div>
-                    </div>
-                </div>
-
-                <!-- 语音通话 -->
-                <div class="mb-4">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-2">语音通话</h3>
-                    
-                    <div id="micPermissionWarning" class="bg-yellow-100 border-l-2 border-yellow-500 text-yellow-700 p-2 mb-3 text-xs hidden">
-                        <p class="font-bold">麦克风权限警告</p>
-                        <p>您需要授予麦克风权限才能进行通话。</p>
-                    </div>
-                    
-                    <div class="bg-gray-50 rounded p-2 mb-2">
-                        <h4 class="text-xs font-medium text-gray-700 mb-1">可用设备</h4>
-                        <ul id="deviceList" class="border rounded divide-y max-h-20 overflow-y-auto text-xs"></ul>
-                    </div>
-                    
-                    <div class="flex space-x-1">
-                        <button id="togglePlay" disabled class="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white py-2 px-2 rounded text-xs">
-                            播放声音
-                        </button>
-                        <button id="toggleCall" disabled class="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white py-2 px-2 rounded text-xs">
-                            点击通话
-                        </button>
-                    </div>
+            <!-- 速度控制 -->
+            <div class="mb-4 md:block hidden">
+                <h2 class="text-sm font-semibold text-gray-700 mb-2">速度控制</h2>
+                <div class="flex space-x-1">
+                    <button id="speed_down" class="control-btn speed-control-btn flex-1 bg-blue-500 text-white py-2 px-2 rounded font-medium hover:bg-blue-600 text-sm">
+                        减速 (F)
+                    </button>
+                    <span id="speed-display" class="flex-1 bg-gray-200 py-2 px-2 rounded text-center text-sm flex items-center justify-center">
+                        中速
+                    </span>
+                    <button id="speed_up" class="control-btn speed-control-btn flex-1 bg-blue-500 text-white py-2 px-2 rounded font-medium hover:bg-blue-600 text-sm">
+                        加速 (R)
+                    </button>
                 </div>
             </div>
 
-            <!-- 下半部分：机械臂控制 -->
-            <div class="arm-control control-section">
-                <h2 class="text-lg font-semibold text-gray-800 mb-4">机械臂控制</h2>
+            <!-- 方向控制 -->
+            <div class="mb-4">
+                <div class="control-grid">
+                    <button id="rotate_left" class="control-btn bg-yellow-500 text-white rounded font-medium hover:bg-yellow-600">
+                        左旋转 (H)
+                    </button>
+                    <button id="forward" class="control-btn bg-blue-500 text-white rounded font-medium hover:bg-blue-600">
+                        前进 (W)
+                    </button>
+                    <button id="rotate_right" class="control-btn bg-yellow-500 text-white rounded font-medium hover:bg-yellow-600">
+                        右旋转 (J)
+                    </button>
+                    
+                    <button id="left" class="control-btn bg-blue-500 text-white rounded font-medium hover:bg-blue-600">
+                        左转 (A)
+                    </button>
+                    <button id="stop" class="control-btn bg-gray-500 text-white rounded font-medium hover:bg-gray-600">
+                        停止 (空格)
+                    </button>
+                    <button id="right" class="control-btn bg-blue-500 text-white rounded font-medium hover:bg-blue-600">
+                        右转 (D)
+                    </button>
+                    
+                    <div></div>
+                    <button id="backward" class="control-btn bg-blue-500 text-white rounded font-medium hover:bg-blue-600">
+                        后退 (S)
+                    </button>
+                    <div></div>
+                </div>
+            </div>
+
+            <!-- 旋转控制 -->
+            <div class="mb-4 hidden">
+                <h2 class="text-sm font-semibold text-gray-700 mb-2">旋转控制</h2>
+                <div class="flex space-x-1">
+                    <button id="rotate_left_extra" class="control-btn flex-1 bg-yellow-500 text-white py-2 px-3 rounded font-medium hover:bg-yellow-600 text-sm">
+                        左旋转 (H)
+                    </button>
+                    <button id="rotate_right_extra" class="control-btn flex-1 bg-yellow-500 text-white py-2 px-3 rounded font-medium hover:bg-yellow-600 text-sm">
+                        右旋转 (J)
+                    </button>
+                </div>
+            </div>
+
+            <!-- 语音通话 -->
+            <div class="mb-4">
+                <h2 class="text-sm font-semibold text-gray-700 mb-2">语音通话</h2>
                 
-                <!-- 机械臂控制区域，可以在这里添加机械臂相关的控制按钮和滑块 -->
-                <div class="bg-gray-50 rounded-lg p-4 mb-4">
-                    <p class="text-sm text-gray-600">机械臂控制功能待实现</p>
-                    <p class="text-xs text-gray-500 mt-1">这里可以添加机械臂关节控制滑块、预设位置按钮等</p>
+                <div id="micPermissionWarning" class="bg-yellow-100 border-l-2 border-yellow-500 text-yellow-700 p-2 mb-3 text-xs hidden">
+                    <p class="font-bold">麦克风权限警告</p>
+                    <p>您需要授予麦克风权限才能进行通话。</p>
                 </div>
                 
-                <!-- 调试信息 -->
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-700 mb-2">调试信息</h3>
-                    <div id="debugInfo" class="bg-gray-800 text-green-400 p-2 rounded font-mono text-xs overflow-y-auto max-h-32"></div>
+                <div class="bg-gray-50 rounded p-2 mb-2">
+                    <h3 class="text-xs font-medium text-gray-700 mb-1">可用设备</h3>
+                    <ul id="deviceList" class="border rounded divide-y max-h-20 overflow-y-auto text-xs"></ul>
                 </div>
+                
+                <div class="flex space-x-1">
+                    <button id="togglePlay" disabled class="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white py-2 px-2 rounded text-xs">
+                        播放声音
+                    </button>
+                    <button id="toggleCall" disabled class="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white py-2 px-2 rounded text-xs">
+                        点击通话
+                    </button>
+                </div>
+            </div>
+
+            <!-- 调试信息 -->
+            <div class="flex-grow">
+                <h2 class="text-sm font-semibold text-gray-700 mb-2">调试信息</h2>
+                <div id="debugInfo" class="bg-gray-800 text-green-400 p-2 rounded font-mono text-xs overflow-y-auto max-h-24"></div>
             </div>
         </div>
 
-        <!-- 右侧摄像头显示 -->
-        <div class="right-panel">
-            <!-- 上半部分：前置摄像头 -->
-            <div class="camera-section">
-                <div class="camera-container">
-                    <img id="front-video-stream" src="/front_video_feed" alt="前置摄像头视频流" 
-                         class="max-w-full max-h-full object-contain rounded-lg">
-                    <div class="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-                        前置摄像头
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 下半部分：手臂摄像头 -->
-            <div class="camera-section">
-                <div class="camera-container">
+        <!-- 右侧视频显示 -->
+        <div class="video-panel bg-black flex items-center justify-center p-4">
+            <div class="grid grid-cols-1 gap-4 w-full h-full">
+                <div class="video-container w-full h-full flex items-center justify-center relative">
                     <img id="video-stream" src="/video_feed" alt="手腕摄像头视频流" 
                          class="max-w-full max-h-full object-contain rounded-lg">
                     <div class="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
@@ -354,6 +289,13 @@
                     </div>
                     <div class="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
                         <span id="fps-counter">30 FPS</span>
+                    </div>
+                </div>
+                <div class="video-container w-full h-full flex items-center justify-center relative">
+                    <img id="front-video-stream" src="/front_video_feed" alt="前置摄像头视频流" 
+                         class="max-w-full max-h-full object-contain rounded-lg">
+                    <div class="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                        前置摄像头
                     </div>
                 </div>
             </div>
