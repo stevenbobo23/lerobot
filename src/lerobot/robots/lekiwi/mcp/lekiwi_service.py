@@ -37,7 +37,7 @@ class LeKiwiServiceConfig:
     linear_speed: float = 0.2  # 线性速度 m/s
     angular_speed: float = 30.0  # 角速度 deg/s
     # 机械臂舵机速度配置 (0.0-1.0，相对于最大速度的百分比)
-    arm_servo_speed: float = 0.5  # 舵机速度，默认50%
+    arm_servo_speed: float = 0.2  # 舵机速度，降低到20%
     # 安全配置
     command_timeout_s: float = 3.0  # 命令超时时间，增加到3秒以适应定时移动
     max_loop_freq_hz: int = 30  # 主循环频率
@@ -326,18 +326,23 @@ class LeKiwiService:
                 "message": str(e)
             }
     
-    def _configure_arm_servo_speed(self, speed_ratio: float = 0.5):
+    def _configure_arm_servo_speed(self, speed_ratio: float = 0.2):
         """配置机械臂舵机速度
         
         Args:
             speed_ratio: 速度比例 (0.0-1.0)，相对于最大速度的百分比
         """
         # 限制速度比例在合理范围内
-        speed_ratio = max(0.1, min(1.0, speed_ratio))
+        speed_ratio = max(0.05, min(1.0, speed_ratio))
         
         # 计算速度值（STS3215最大速度为2400）
         max_speed = 2400
         goal_speed = int(max_speed * speed_ratio)
+        
+        # 计算加速度（更低的加速度以获得更平滑的运动）
+        # 使用更保守的加速度计算
+        max_acceleration = 50
+        acceleration = max(5, int(max_acceleration * speed_ratio * 0.5))  # 加速度额处96折
         
         arm_motors = [motor for motor in self.robot.bus.motors if motor.startswith("arm")]
         
@@ -345,16 +350,18 @@ class LeKiwiService:
         for motor in arm_motors:
             try:
                 # 设置加速度（降低加速度以获得更平滑的运动）
-                acceleration = int(50 * speed_ratio)  # 默认50，根据速度比例调整
                 self.robot.bus.write("Goal_Acc", motor, acceleration)
                 
                 # 设置目标速度
                 self.robot.bus.write("Goal_Speed", motor, goal_speed)
                 
+                # 设置更低的P系数以减少震动（默认是12）
+                self.robot.bus.write("P_Coefficient", motor, 8)
+                
             except Exception as e:
                 self.logger.warning(f"设置舵机 {motor} 速度失败: {e}")
         
-        self.logger.info(f"机械臂舵机速度已设置为 {speed_ratio*100:.0f}%（Goal_Speed={goal_speed}, Goal_Acc={acceleration}）")
+        self.logger.info(f"机械臂舵机速度已设置为 {speed_ratio*100:.0f}%（Goal_Speed={goal_speed}, Goal_Acc={acceleration}, P_Coeff=8）")
     
     def _control_loop(self):
         """机器人控制主循环"""
@@ -449,7 +456,7 @@ def create_default_service(robot_id: str = "my_awesome_kiwi") -> LeKiwiService:
         robot=robot_config,
         linear_speed=0.2,
         angular_speed=30.0,
-        arm_servo_speed=0.5,  # 舵机速度设置为50%
+        arm_servo_speed=0.2,  # 舵机速度设置为20%
         command_timeout_s=3,
         max_loop_freq_hz=30
     )
