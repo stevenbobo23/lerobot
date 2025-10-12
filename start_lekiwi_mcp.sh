@@ -34,7 +34,8 @@ if [[ "$VIRTUAL_ENV" != *"lerobot"* ]] && [[ "$CONDA_DEFAULT_ENV" != *"lerobot"*
 fi
 
 # 设置MCP WebSocket端点环境变量
-export MCP_ENDPOINT="wss://api.xiaozhi.me/mcp/?token=eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEzNTM4MSwiYWdlbnRJZCI6NjkyMTI5LCJlbmRwb2ludElkIjoiYWdlbnRfNjkyMTI5IiwicHVycG9zZSI6Im1jcC1lbmRwb2ludCIsImlhdCI6MTc2MDExOTIxOCwiZXhwIjoxNzkxNjc2ODE4fQ.BAbJuNAyfFbN7oOleqnwE_qPIZIAT__gBML7UcZr-sxCdbB2v_FGTxeoZEBHlyqdAhZZB2Chfim5Xy4ntKMhQw"
+# export MCP_ENDPOINT="wss://api.xiaozhi.me/mcp/?token=eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEzNTM4MSwiYWdlbnRJZCI6NjkyMTI5LCJlbmRwb2ludElkIjoiYWdlbnRfNjkyMTI5IiwicHVycG9zZSI6Im1jcC1lbmRwb2ludCIsImlhdCI6MTc2MDExOTIxOCwiZXhwIjoxNzkxNjc2ODE4fQ.BAbJuNAyfFbN7oOleqnwE_qPIZIAT__gBML7UcZr-sxCdbB2v_FGTxeoZEBHlyqdAhZZB2Chfim5Xy4ntKMhQw"
+export MCP_ENDPOINT="wss://api.xiaozhi.me/mcp/?token=eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEzNTM4MSwiYWdlbnRJZCI6Njg4NzYyLCJlbmRwb2ludElkIjoiYWdlbnRfNjg4NzYyIiwicHVycG9zZSI6Im1jcC1lbmRwb2ludCIsImlhdCI6MTc2MDI0OTEzNSwiZXhwIjoxNzkxODA2NzM1fQ.CbO0We-fo_qO5DmlP3ugu6G2jehfP_fAzTxoLUngp0htPyWQUbNF9WebLfhZNzAwX_IUiSLb0MkC-hgoF78c3w"
 echo "MCP端点: $MCP_ENDPOINT"
 echo ""
 
