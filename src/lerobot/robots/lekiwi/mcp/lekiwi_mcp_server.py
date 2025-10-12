@@ -591,6 +591,271 @@ def twist_waist(times: int = 3, pause_duration: float = 0.3) -> dict:
             "error": f"扭腰动作执行异常: {str(e)}"
         }
 
+@mcp.tool()
+def control_arm_joint_limited(joint_name: str, position: float) -> dict:
+    """
+    控制机械臂单个关节到指定位置，限制运行范围在最大最小值的50%区间内
+    
+    安全限制范围（50%运行区间）：
+    - arm_shoulder_pan (肩膀水平): -50 到 50 度
+    - arm_shoulder_lift (肩膀垂直): -50 到 50 度  
+    - arm_elbow_flex (肘关节): -50 到 50 度
+    - arm_wrist_flex (腕关节弯曲): -50 到 50 度
+    - arm_wrist_roll (腕关节旋转): -50 到 50 度
+    - arm_gripper (夹爪): 0 到 50 度（夹爪范围本来就是0-100，50%即0-50）
+    
+    Args:
+        joint_name: 关节名称，可选值：
+                   'shoulder_pan', 'shoulder_lift', 'elbow_flex', 
+                   'wrist_flex', 'wrist_roll', 'gripper'
+        position: 目标位置（度），会被限制在安全范围内
+        
+    Returns:
+        dict: 包含操作结果的字典
+    """
+    logger.info(f"Controlling arm joint {joint_name} to position {position} (limited range)")
+    
+    service = get_service()
+    if service is None:
+        return {
+            "success": False,
+            "error": "LeKiwi服务不可用"
+        }
+    
+    # 关节名称映射和安全范围定义（50%运行区间）
+    joint_mapping = {
+        "shoulder_pan": {
+            "key": "arm_shoulder_pan.pos",
+            "min_safe": -50,
+            "max_safe": 50,
+            "description": "肩膀水平"
+        },
+        "shoulder_lift": {
+            "key": "arm_shoulder_lift.pos",
+            "min_safe": -50,
+            "max_safe": 50,
+            "description": "肩膀垂直"
+        },
+        "elbow_flex": {
+            "key": "arm_elbow_flex.pos",
+            "min_safe": -50,
+            "max_safe": 50,
+            "description": "肘关节"
+        },
+        "wrist_flex": {
+            "key": "arm_wrist_flex.pos",
+            "min_safe": -50,
+            "max_safe": 50,
+            "description": "腕关节弯曲"
+        },
+        "wrist_roll": {
+            "key": "arm_wrist_roll.pos",
+            "min_safe": -50,
+            "max_safe": 50,
+            "description": "腕关节旋转"
+        },
+        "gripper": {
+            "key": "arm_gripper.pos",
+            "min_safe": 0,
+            "max_safe": 50,
+            "description": "夹爪"
+        }
+    }
+    
+    # 验证关节名称
+    if joint_name not in joint_mapping:
+        valid_joints = ", ".join(joint_mapping.keys())
+        return {
+            "success": False,
+            "error": f"无效的关节名称: {joint_name}。有效选项: {valid_joints}"
+        }
+    
+    joint_info = joint_mapping[joint_name]
+    original_position = position
+    
+    # 限制位置到安全范围内
+    clamped_position = max(joint_info["min_safe"], min(joint_info["max_safe"], position))
+    
+    # 如果位置被限制，记录警告
+    if clamped_position != original_position:
+        logger.warning(f"Position {original_position} for {joint_name} clamped to {clamped_position} (safe range: {joint_info['min_safe']} to {joint_info['max_safe']})")
+    
+    try:
+        # 发送关节位置控制命令
+        arm_positions = {joint_info["key"]: clamped_position}
+        result = service.set_arm_position(arm_positions)
+        
+        if result["success"]:
+            result["message"] = f"{joint_info['description']}已移动到{clamped_position}度（安全限制范围: {joint_info['min_safe']}°~{joint_info['max_safe']}°）"
+            result["joint_name"] = joint_name
+            result["joint_description"] = joint_info["description"]
+            result["original_position"] = original_position
+            result["actual_position"] = clamped_position
+            result["safe_range"] = {
+                "min": joint_info["min_safe"],
+                "max": joint_info["max_safe"]
+            }
+            result["was_clamped"] = (clamped_position != original_position)
+            
+            if result["was_clamped"]:
+                result["clamp_warning"] = f"原始位置{original_position}°超出安全范围，已限制到{clamped_position}°"
+            
+            logger.info(f"Joint {joint_name} moved to {clamped_position} degrees successfully")
+        else:
+            logger.error(f"Joint {joint_name} control failed: {result.get('message', '未知错误')}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Joint {joint_name} control failed with exception: {e}")
+        return {
+            "success": False,
+            "error": f"关节{joint_info['description']}控制执行异常: {str(e)}"
+        }
+
+@mcp.tool()
+def control_multiple_arm_joints_limited(joint_positions: dict) -> dict:
+    """
+    同时控制机械臂多个关节到指定位置，限制运行范围在最大最小值的50%区间内
+    
+    安全限制范围（50%运行区间）：
+    - shoulder_pan (肩膀水平): -50 到 50 度
+    - shoulder_lift (肩膀垂直): -50 到 50 度  
+    - elbow_flex (肘关节): -50 到 50 度
+    - wrist_flex (腕关节弯曲): -50 到 50 度
+    - wrist_roll (腕关节旋转): -50 到 50 度
+    - gripper (夹爪): 0 到 50 度
+    
+    Args:
+        joint_positions: 关节位置字典，格式如下：
+                        {
+                            "shoulder_pan": 30,
+                            "elbow_flex": -20,
+                            "gripper": 25
+                        }
+        
+    Returns:
+        dict: 包含操作结果的字典
+    """
+    logger.info(f"Controlling multiple arm joints (limited range): {joint_positions}")
+    
+    service = get_service()
+    if service is None:
+        return {
+            "success": False,
+            "error": "LeKiwi服务不可用"
+        }
+    
+    # 关节名称映射和安全范围定义（50%运行区间）
+    joint_mapping = {
+        "shoulder_pan": {
+            "key": "arm_shoulder_pan.pos",
+            "min_safe": -50,
+            "max_safe": 50,
+            "description": "肩膀水平"
+        },
+        "shoulder_lift": {
+            "key": "arm_shoulder_lift.pos",
+            "min_safe": -50,
+            "max_safe": 50,
+            "description": "肩膀垂直"
+        },
+        "elbow_flex": {
+            "key": "arm_elbow_flex.pos",
+            "min_safe": -50,
+            "max_safe": 50,
+            "description": "肘关节"
+        },
+        "wrist_flex": {
+            "key": "arm_wrist_flex.pos",
+            "min_safe": -50,
+            "max_safe": 50,
+            "description": "腕关节弯曲"
+        },
+        "wrist_roll": {
+            "key": "arm_wrist_roll.pos",
+            "min_safe": -50,
+            "max_safe": 50,
+            "description": "腕关节旋转"
+        },
+        "gripper": {
+            "key": "arm_gripper.pos",
+            "min_safe": 0,
+            "max_safe": 50,
+            "description": "夹爪"
+        }
+    }
+    
+    # 验证输入并处理关节位置
+    arm_positions = {}
+    position_info = {}
+    clamp_warnings = []
+    
+    for joint_name, position in joint_positions.items():
+        if joint_name not in joint_mapping:
+            valid_joints = ", ".join(joint_mapping.keys())
+            return {
+                "success": False,
+                "error": f"无效的关节名称: {joint_name}。有效选项: {valid_joints}"
+            }
+        
+        joint_info = joint_mapping[joint_name]
+        original_position = position
+        
+        # 限制位置到安全范围内
+        clamped_position = max(joint_info["min_safe"], min(joint_info["max_safe"], position))
+        
+        # 记录位置信息
+        arm_positions[joint_info["key"]] = clamped_position
+        position_info[joint_name] = {
+            "description": joint_info["description"],
+            "original_position": original_position,
+            "actual_position": clamped_position,
+            "safe_range": {
+                "min": joint_info["min_safe"],
+                "max": joint_info["max_safe"]
+            },
+            "was_clamped": (clamped_position != original_position)
+        }
+        
+        # 如果位置被限制，记录警告
+        if clamped_position != original_position:
+            warning_msg = f"{joint_info['description']}: {original_position}°限制到{clamped_position}°"
+            clamp_warnings.append(warning_msg)
+            logger.warning(f"Position {original_position} for {joint_name} clamped to {clamped_position} (safe range: {joint_info['min_safe']} to {joint_info['max_safe']})")
+    
+    try:
+        # 发送多关节位置控制命令
+        result = service.set_arm_position(arm_positions)
+        
+        if result["success"]:
+            joint_count = len(joint_positions)
+            clamped_count = len(clamp_warnings)
+            
+            result["message"] = f"成功控制{joint_count}个关节到目标位置（安全限制范围50%区间）"
+            result["joint_positions"] = position_info
+            result["joints_controlled"] = list(joint_positions.keys())
+            result["clamp_warnings"] = clamp_warnings
+            result["clamped_joints_count"] = clamped_count
+            
+            if clamp_warnings:
+                result["message"] += f"，其中{clamped_count}个关节位置被安全限制"
+            
+            logger.info(f"Multiple joints controlled successfully: {list(joint_positions.keys())}")
+            if clamp_warnings:
+                logger.info(f"Clamp warnings: {clamp_warnings}")
+        else:
+            logger.error(f"Multiple joints control failed: {result.get('message', '未知错误')}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Multiple joints control failed with exception: {e}")
+        return {
+            "success": False,
+            "error": f"多关节控制执行异常: {str(e)}"
+        }
+
 # 启动服务器
 if __name__ == "__main__":
     logger.info("Starting LeKiwi MCP Controller server...")
