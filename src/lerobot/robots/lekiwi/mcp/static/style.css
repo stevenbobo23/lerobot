@@ -18,38 +18,40 @@ body {
 /* 双栏布局样式 */
 .main-layout {
     display: flex;
-    gap: 20px;
-    height: 80vh;
-    margin-top: 20px;
+    gap: 15px;
+    height: 82vh;
+    margin-top: 10px;
 }
 
 .left-panel {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
 }
 
 .right-panel {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
 }
 
 /* 移动控制区域样式 */
 .move-control-section {
     background-color: #f8f9fa;
-    padding: 20px;
-    border-radius: 10px;
+    padding: 12px;
+    border-radius: 8px;
     border: 2px solid #e0e0e0;
     height: 50%;
-    overflow-y: auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .move-control-section h3 {
     margin-top: 0;
-    margin-bottom: 15px;
+    margin-bottom: 8px;
     color: #2c3e50;
     text-align: center;
 }
@@ -57,14 +59,15 @@ body {
 .control-grid { 
     display: grid; 
     grid-template-columns: 1fr 1fr 1fr; 
-    gap: 10px; 
-    margin: 15px 0; 
+    gap: 6px; 
+    margin: 8px 0; 
     max-width: 100%;
+    flex: 1;
 }
 
 .control-button { 
-    padding: 20px; 
-    font-size: 16px; 
+    padding: 12px; 
+    font-size: 14px; 
     border: none; 
     border-radius: 5px; 
     background-color: #007bff; 
@@ -72,7 +75,7 @@ body {
     cursor: pointer;
     grid-column: span 1;
     transition: all 0.2s ease;
-    min-height: 60px;
+    min-height: 45px;
 }
 
 .control-button:hover { 
@@ -136,11 +139,11 @@ body {
 }
 
 .status { 
-    margin: 20px 0; 
-    padding: 15px; 
-    border-radius: 8px; 
+    margin: 8px 0; 
+    padding: 8px; 
+    border-radius: 5px; 
     font-weight: bold;
-    font-size: 16px;
+    font-size: 14px;
 }
 
 .status.connected { 
@@ -158,8 +161,8 @@ body {
 /* 摄像头区域样式 */
 .camera-section {
     background-color: #f9f9f9;
-    padding: 20px;
-    border-radius: 10px;
+    padding: 12px;
+    border-radius: 8px;
     border: 2px solid #e0e0e0;
     height: 50%;
     display: flex;
@@ -168,7 +171,7 @@ body {
 
 .camera-section h3 {
     margin-top: 0;
-    margin-bottom: 15px;
+    margin-bottom: 8px;
     color: #2c3e50;
     text-align: center;
 }
@@ -214,27 +217,32 @@ pre {
 
 h1 {
     color: #333;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
+    margin-top: 5px;
+    font-size: 24px;
 }
 
 h3 {
     color: #555;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
+    font-size: 16px;
 }
 
 /* 机械臂控制区域样式 */
 .arm-control-section {
     background-color: #f0f8ff;
-    padding: 20px;
-    border-radius: 10px;
+    padding: 12px;
+    border-radius: 8px;
     border: 2px solid #e0e0e0;
     height: 50%;
-    overflow-y: auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .arm-control-section h3 {
     margin-top: 0;
-    margin-bottom: 15px;
+    margin-bottom: 8px;
     color: #2c3e50;
     text-align: center;
 }
@@ -242,10 +250,10 @@ h3 {
 .slider-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 10px;
-    margin-bottom: 15px;
-    max-height: 300px;
-    overflow-y: auto;
+    gap: 6px;
+    margin-bottom: 10px;
+    flex: 1;
+    overflow-y: hidden;
 }
 
 .slider-item {
@@ -256,19 +264,19 @@ h3 {
 
 .slider-item label {
     font-weight: bold;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
     color: #34495e;
-    font-size: 14px;
+    font-size: 12px;
 }
 
 .arm-slider {
     -webkit-appearance: none;
     appearance: none;
-    height: 8px;
-    border-radius: 5px;
+    height: 6px;
+    border-radius: 3px;
     background: #ddd;
     outline: none;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
     transition: background 0.3s;
 }
 
@@ -279,8 +287,8 @@ h3 {
 .arm-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: #007bff;
     cursor: pointer;
@@ -292,8 +300,8 @@ h3 {
 }
 
 .arm-slider::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: #007bff;
     cursor: pointer;
@@ -308,17 +316,17 @@ h3 {
 .slider-value {
     text-align: center;
     font-weight: bold;
-    font-size: 14px;
+    font-size: 11px;
     color: #2c3e50;
     background-color: #ecf0f1;
-    padding: 2px 8px;
-    border-radius: 4px;
-    min-width: 40px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    min-width: 35px;
 }
 
 .arm-buttons {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     justify-content: center;
     flex-wrap: wrap;
 }
@@ -327,10 +335,10 @@ h3 {
     background-color: #17a2b8;
     color: white;
     border: none;
-    padding: 10px 15px;
-    border-radius: 5px;
+    padding: 6px 10px;
+    border-radius: 4px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 12px;
     transition: all 0.2s ease;
 }
 
