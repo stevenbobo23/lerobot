@@ -390,6 +390,8 @@ def create_default_service(robot_id: str = "my_awesome_kiwi") -> LeKiwiService:
             fps=30, 
             width=640, 
             height=480, 
+
+            
             rotation=Cv2Rotation.ROTATE_180  # 手腕摄像头顺时针旋转90度（即-90度）
         )
     }

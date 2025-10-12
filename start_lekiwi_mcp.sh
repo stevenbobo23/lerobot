@@ -33,6 +33,11 @@ if [[ "$VIRTUAL_ENV" != *"lerobot"* ]] && [[ "$CONDA_DEFAULT_ENV" != *"lerobot"*
     echo ""
 fi
 
+# 设置MCP WebSocket端点环境变量
+export MCP_ENDPOINT="wss://api.xiaozhi.me/mcp/?token=eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEzNTM4MSwiYWdlbnRJZCI6NjkyMTI5LCJlbmRwb2ludElkIjoiYWdlbnRfNjkyMTI5IiwicHVycG9zZSI6Im1jcC1lbmRwb2ludCIsImlhdCI6MTc2MDExOTIxOCwiZXhwIjoxNzkxNjc2ODE4fQ.BAbJuNAyfFbN7oOleqnwE_qPIZIAT__gBML7UcZr-sxCdbB2v_FGTxeoZEBHlyqdAhZZB2Chfim5Xy4ntKMhQw"
+echo "MCP端点: $MCP_ENDPOINT"
+echo ""
+
 # 切换到MCP目录
 cd src/lerobot/robots/lekiwi/mcp/
 
