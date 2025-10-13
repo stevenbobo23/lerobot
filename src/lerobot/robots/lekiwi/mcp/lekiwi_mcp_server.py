@@ -940,21 +940,18 @@ def capture_and_analyze_with_qwen(question: str = "") -> dict:
     except requests.exceptions.Timeout:
         return {
             "success": False,
-            "error": "千问API调用超时，请检查网络连接",
-            "capture_info": capture_result
+            "error": "千问API调用超时，请检查网络连接"
         }
     except requests.exceptions.RequestException as e:
         return {
             "success": False,
-            "error": f"千问API网络请求失败: {str(e)}",
-            "capture_info": capture_result
+            "error": f"千问API网络请求失败: {str(e)}"
         }
     except Exception as e:
         logger.error(f"Qwen VL analysis failed: {e}")
         return {
             "success": False,
-            "error": f"千问VL分析异常: {str(e)}",
-            "capture_info": capture_result
+            "error": f"千问VL分析异常: {str(e)}"
         }
 
 @mcp.tool()
