@@ -5,7 +5,7 @@
 
 # 保存当前目录
 ORIGINAL_DIR="$(pwd)"
-AUDIO_PI_DIR="/home/zhengbo/workspaces/audio_pi"
+AUDIO_PI_DIR="~/workspaces/audio_pi"
 
 # 检查 audio_pi 目录是否存在
 if [ ! -d "$AUDIO_PI_DIR" ]; then

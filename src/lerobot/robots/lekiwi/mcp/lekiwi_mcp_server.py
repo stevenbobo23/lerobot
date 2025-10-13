@@ -1099,7 +1099,33 @@ def control_multiple_arm_joints_limited(joint_positions: dict) -> dict:
 
 # 启动服务器
 if __name__ == "__main__":
-    logger.info("Starting LeKiwi MCP Controller server...")
+    import argparse
+    
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='LeKiwi MCP Controller Server')
+    parser.add_argument(
+        '--transport',
+        type=str,
+        choices=['stdio', 'http'],
+        default='stdio',
+        help='传输方式：stdio（标准输入输出）或 http（HTTP服务器），默认为stdio'
+    )
+    parser.add_argument(
+        '--host',
+        type=str,
+        default='0.0.0.0',
+        help='HTTP服务器监听地址（仅在transport=http时有效），默认为0.0.0.0'
+    )
+    parser.add_argument(
+        '--port',
+        type=int,
+        default=8000,
+        help='HTTP服务器监听端口（仅在transport=http时有效），默认为8000'
+    )
+    
+    args = parser.parse_args()
+    
+    logger.info(f"Starting LeKiwi MCP Controller server with transport: {args.transport}...")
     
     # 在启动MCP服务器前先建立机器人连接
     logger.info("Initializing robot connection...")
@@ -1109,6 +1135,10 @@ if __name__ == "__main__":
     else:
         logger.warning("⚠️ Robot connection failed, MCP server will run in offline mode")
     
-    mcp.run(transport="http", host="0.0.0.0", port=8000)
-
-    # mcp.run(transport="stdio")
+    # 根据传输方式启动服务器
+    if args.transport == "http":
+        logger.info(f"Starting HTTP server on {args.host}:{args.port}")
+        mcp.run(transport="http", host=args.host, port=args.port)
+    else:
+        logger.info("Starting server with stdio transport")
+        mcp.run(transport="stdio")
