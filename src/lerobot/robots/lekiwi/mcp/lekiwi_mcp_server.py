@@ -718,10 +718,9 @@ def control_arm_joint_limited(joint_name: str, position: float) -> dict:
             "error": f"关节{joint_info['description']}控制执行异常: {str(e)}"
         }
 
-@mcp.tool()
-def capture_front_camera_image(filename: Optional[str] = None) -> dict:
+def _capture_front_camera_image_internal(filename: Optional[str] = None) -> dict:
     """
-    获取前置摄像头图片并保存为JPG格式到~/image目录下
+    内部辅助函数：获取前置摄像头图片并保存为JPG格式到~/image目录下
     
     Args:
         filename: 可选的文件名（不含扩展名），如果不提供则使用时间戳
@@ -831,6 +830,19 @@ def capture_front_camera_image(filename: Optional[str] = None) -> dict:
         }
 
 @mcp.tool()
+def capture_front_camera_image(filename: Optional[str] = None) -> dict:
+    """
+    获取前置摄像头图片并保存为JPG格式到~/image目录下
+    
+    Args:
+        filename: 可选的文件名（不含扩展名），如果不提供则使用时间戳
+        
+    Returns:
+        dict: 包含操作结果的字典
+    """
+    return _capture_front_camera_image_internal(filename)
+
+@mcp.tool()
 def capture_and_analyze_with_qwen(question: str = "请描述图片中的内容", filename: Optional[str] = None) -> dict:
     """
     获取前置摄像头图片并使用千问VL模型分析图片内容
@@ -844,8 +856,8 @@ def capture_and_analyze_with_qwen(question: str = "请描述图片中的内容",
     """
     logger.info(f"Capturing front camera image and analyzing with Qwen VL, question: {question}")
     
-    # 首先捕获图片
-    capture_result = capture_front_camera_image(filename)
+    # 首先捕获图片（使用内部辅助函数）
+    capture_result = _capture_front_camera_image_internal(filename)
     
     if not capture_result["success"]:
         return capture_result
