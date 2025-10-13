@@ -843,21 +843,27 @@ def capture_front_camera_image(filename: Optional[str] = None) -> dict:
     return _capture_front_camera_image_internal(filename)
 
 @mcp.tool()
-def capture_and_analyze_with_qwen(question: str = "请描述图片中的内容,50字以内，请用中文回复", filename: Optional[str] = None) -> dict:
+def capture_and_analyze_with_qwen(question: str = "") -> dict:
     """
-    获取前置摄像头图片并使用千问VL模型分析图片内容
+    获取前置摄像头图片并分析图片内容
     
     Args:
-        question: 要问千问模型的问题，默认为"请描述图片中的内容"
-        filename: 可选的文件名（不含扩展名），如果不提供则使用时间戳
+        question: 用户想了解的额外信息，会附加到默认提示词后面
         
     Returns:
         dict: 包含操作结果的字典，包括图片信息和AI分析结果
     """
-    logger.info(f"Capturing front camera image and analyzing with Qwen VL, question: {question}")
+    # 构建完整的提问内容：默认提示词 + 用户问题
+    base_prompt = "用中文告诉我图片里有什么,回复内容100字以内"
+    if question:
+        full_question = f"{base_prompt}。{question}"
+    else:
+        full_question = base_prompt
     
-    # 首先捕获图片（使用内部辅助函数）
-    capture_result = _capture_front_camera_image_internal(filename)
+    logger.info(f"Capturing front camera image and analyzing with Qwen VL, question: {full_question}")
+    
+    # 首先捕获图片（使用内部辅助函数，使用时间戳作为文件名）
+    capture_result = _capture_front_camera_image_internal(None)
     
     if not capture_result["success"]:
         return capture_result
@@ -892,7 +898,7 @@ def capture_and_analyze_with_qwen(question: str = "请描述图片中的内容,5
                         },
                         {
                             "type": "text", 
-                            "text": question
+                            "text": full_question
                         }
                     ]
                 }
@@ -909,29 +915,26 @@ def capture_and_analyze_with_qwen(question: str = "请描述图片中的内容,5
             if "choices" in response_data and len(response_data["choices"]) > 0:
                 ai_content = response_data["choices"][0]["message"]["content"]
                 
-                # 合并结果
-                result = capture_result.copy()
-                result["ai_analysis"] = {
-                    "question": question,
+                # 返回简洁的结果（不包含capture_result详细信息）
+                logger.info(f"Qwen VL analysis completed successfully")
+                return {
+                    "success": True,
+                    "user_question": question if question else "无",
+                    "full_question": full_question,
                     "answer": ai_content,
                     "model": "qwen-vl-plus",
+                    "image_file": capture_result['filename'],
                     "analysis_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
                 }
-                result["message"] = f"图片已保存并完成AI分析: {capture_result['filename']}"
-                
-                logger.info(f"Qwen VL analysis completed successfully")
-                return result
             else:
                 return {
                     "success": False,
-                    "error": "千问API响应格式异常，未找到分析结果",
-                    "capture_info": capture_result
+                    "error": "千问API响应格式异常，未找到分析结果"
                 }
         else:
             return {
                 "success": False,
-                "error": f"千问API调用失败，状态码: {response.status_code}, 响应: {response.text}",
-                "capture_info": capture_result
+                "error": f"千问API调用失败，状态码: {response.status_code}, 响应: {response.text}"
             }
             
     except requests.exceptions.Timeout:
