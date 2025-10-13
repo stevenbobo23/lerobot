@@ -10,8 +10,15 @@ import os
 import logging
 import math
 import random
+import time
+import cv2
+import numpy as np
+import base64
+import requests
+import json
 from typing import Dict, Any, Optional
 from fastmcp import FastMCP
+from pathlib import Path
 
 # 添加父目录到路径
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
@@ -709,6 +716,230 @@ def control_arm_joint_limited(joint_name: str, position: float) -> dict:
         return {
             "success": False,
             "error": f"关节{joint_info['description']}控制执行异常: {str(e)}"
+        }
+
+@mcp.tool()
+def capture_front_camera_image(filename: Optional[str] = None) -> dict:
+    """
+    获取前置摄像头图片并保存为JPG格式到~/image目录下
+    
+    Args:
+        filename: 可选的文件名（不含扩展名），如果不提供则使用时间戳
+        
+    Returns:
+        dict: 包含操作结果的字典
+    """
+    logger.info(f"Capturing front camera image with filename: {filename}")
+    
+    service = get_service()
+    if service is None:
+        return {
+            "success": False,
+            "error": "LeKiwi服务不可用"
+        }
+    
+    if not service.robot.is_connected:
+        return {
+            "success": False,
+            "error": "机器人未连接，无法获取摄像头图片"
+        }
+    
+    # 检查前置摄像头是否可用
+    if "front" not in service.robot.cameras:
+        return {
+            "success": False,
+            "error": "前置摄像头不可用"
+        }
+    
+    front_camera = service.robot.cameras["front"]
+    if not front_camera.is_connected:
+        return {
+            "success": False,
+            "error": "前置摄像头未连接"
+        }
+    
+    try:
+        # 获取摄像头图片
+        logger.info("Reading frame from front camera...")
+        frame = front_camera.async_read(timeout_ms=1000)  # 1秒超时
+        
+        if frame is None or frame.size == 0:
+            return {
+                "success": False,
+                "error": "无法从前置摄像头获取图片数据"
+            }
+        
+        # 创建保存目录
+        image_dir = Path.home() / "image"
+        image_dir.mkdir(exist_ok=True)
+        
+        # 生成文件名
+        if filename is None:
+            timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+            filename = f"front_camera_{timestamp}"
+        
+        # 确保文件名安全（移除特殊字符）
+        safe_filename = "".join(c for c in filename if c.isalnum() or c in ('-', '_', '.'))
+        if not safe_filename:
+            safe_filename = f"front_camera_{int(time.time())}"
+        
+        # 完整文件路径
+        file_path = image_dir / f"{safe_filename}.jpg"
+        
+        # 确保文件名唯一（如果文件已存在，添加序号）
+        counter = 1
+        original_path = file_path
+        while file_path.exists():
+            stem = original_path.stem
+            file_path = image_dir / f"{stem}_{counter}.jpg"
+            counter += 1
+        
+        # 保存图片为JPG格式
+        # OpenCV默认使用BGR格式，如果需要RGB格式可以转换
+        success = cv2.imwrite(str(file_path), frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        
+        if success:
+            # 获取图片信息
+            height, width = frame.shape[:2]
+            file_size = file_path.stat().st_size
+            
+            logger.info(f"Front camera image saved successfully: {file_path}")
+            return {
+                "success": True,
+                "message": f"前置摄像头图片已保存到 {file_path}",
+                "file_path": str(file_path),
+                "filename": file_path.name,
+                "image_info": {
+                    "width": width,
+                    "height": height,
+                    "file_size_bytes": file_size,
+                    "format": "JPEG"
+                },
+                "capture_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"保存图片到 {file_path} 失败"
+            }
+            
+    except Exception as e:
+        logger.error(f"Capture front camera image failed: {e}")
+        return {
+            "success": False,
+            "error": f"获取前置摄像头图片异常: {str(e)}"
+        }
+
+@mcp.tool()
+def capture_and_analyze_with_qwen(question: str = "请描述图片中的内容", filename: Optional[str] = None) -> dict:
+    """
+    获取前置摄像头图片并使用千问VL模型分析图片内容
+    
+    Args:
+        question: 要问千问模型的问题，默认为"请描述图片中的内容"
+        filename: 可选的文件名（不含扩展名），如果不提供则使用时间戳
+        
+    Returns:
+        dict: 包含操作结果的字典，包括图片信息和AI分析结果
+    """
+    logger.info(f"Capturing front camera image and analyzing with Qwen VL, question: {question}")
+    
+    # 首先捕获图片
+    capture_result = capture_front_camera_image(filename)
+    
+    if not capture_result["success"]:
+        return capture_result
+    
+    try:
+        # 读取刚保存的图片文件并转换为base64
+        image_path = capture_result["file_path"]
+        with open(image_path, "rb") as image_file:
+            image_data = image_file.read()
+            image_base64 = base64.b64encode(image_data).decode('utf-8')
+        
+        # 构建千问API请求
+        api_url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+        api_key = "sk-d7ca1868a1ee4077aa225aa49bc8cf41"
+        
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "qwen-vl-plus",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url", 
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_base64}"
+                            }
+                        },
+                        {
+                            "type": "text", 
+                            "text": question
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        logger.info("Calling Qwen VL API for image analysis...")
+        response = requests.post(api_url, headers=headers, json=payload, timeout=30)
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            
+            # 提取AI分析结果
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                ai_content = response_data["choices"][0]["message"]["content"]
+                
+                # 合并结果
+                result = capture_result.copy()
+                result["ai_analysis"] = {
+                    "question": question,
+                    "answer": ai_content,
+                    "model": "qwen-vl-plus",
+                    "analysis_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                }
+                result["message"] = f"图片已保存并完成AI分析: {capture_result['filename']}"
+                
+                logger.info(f"Qwen VL analysis completed successfully")
+                return result
+            else:
+                return {
+                    "success": False,
+                    "error": "千问API响应格式异常，未找到分析结果",
+                    "capture_info": capture_result
+                }
+        else:
+            return {
+                "success": False,
+                "error": f"千问API调用失败，状态码: {response.status_code}, 响应: {response.text}",
+                "capture_info": capture_result
+            }
+            
+    except requests.exceptions.Timeout:
+        return {
+            "success": False,
+            "error": "千问API调用超时，请检查网络连接",
+            "capture_info": capture_result
+        }
+    except requests.exceptions.RequestException as e:
+        return {
+            "success": False,
+            "error": f"千问API网络请求失败: {str(e)}",
+            "capture_info": capture_result
+        }
+    except Exception as e:
+        logger.error(f"Qwen VL analysis failed: {e}")
+        return {
+            "success": False,
+            "error": f"千问VL分析异常: {str(e)}",
+            "capture_info": capture_result
         }
 
 @mcp.tool()
