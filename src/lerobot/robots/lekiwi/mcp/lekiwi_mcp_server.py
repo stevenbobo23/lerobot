@@ -845,10 +845,10 @@ def capture_front_camera_image(filename: Optional[str] = None) -> dict:
 @mcp.tool()
 def capture_and_analyze_with_qwen(question: str = "") -> dict:
     """
-    获取前置摄像头图片并分析图片内容
+    用于拍摄小车前方的照片并分析图片内容，用户提到拍照或想知道前方或周围有什么时可以调用
     
     Args:
-        question: 用户想了解的额外信息，会附加到默认提示词后面
+        question: 用户想了解的图片信息
         
     Returns:
         dict: 包含操作结果的字典，包括图片信息和AI分析结果
