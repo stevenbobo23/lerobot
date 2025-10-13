@@ -857,7 +857,7 @@ def capture_and_analyze_with_qwen(question: str = "") -> dict:
         dict: 包含操作结果的字典，包括图片信息和AI分析结果
     """
     # 构建完整的提问内容：默认提示词 + 用户问题
-    base_prompt = "用中文告诉我图片里有什么,回复内容100字以内"
+    base_prompt = "用中文告诉我图片里有什么,回复内容50字以内"
     if question:
         full_question = f"{base_prompt}。{question}"
     else:
