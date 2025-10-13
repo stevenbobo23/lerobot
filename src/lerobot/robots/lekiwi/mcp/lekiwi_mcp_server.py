@@ -843,7 +843,7 @@ def capture_front_camera_image(filename: Optional[str] = None) -> dict:
     return _capture_front_camera_image_internal(filename)
 
 @mcp.tool()
-def capture_and_analyze_with_qwen(question: str = "请描述图片中的内容", filename: Optional[str] = None) -> dict:
+def capture_and_analyze_with_qwen(question: str = "请描述图片中的内容,50字以内，请用中文回复", filename: Optional[str] = None) -> dict:
     """
     获取前置摄像头图片并使用千问VL模型分析图片内容
     
