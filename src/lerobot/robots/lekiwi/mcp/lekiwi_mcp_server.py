@@ -794,25 +794,28 @@ def _capture_front_camera_image_internal(filename: Optional[str] = None) -> dict
             counter += 1
         
         # 保存图片为JPG格式
-        # OpenCV默认使用BGR格式，如果需要RGB格式可以转换
-        success = cv2.imwrite(str(file_path), frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        # OpenCV默认使用BGR格式，转换为RGB格式以避免颜色显示异常
+        logger.info("Converting BGR to RGB for proper color display...")
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        success = cv2.imwrite(str(file_path), frame_rgb, [cv2.IMWRITE_JPEG_QUALITY, 95])
         
         if success:
-            # 获取图片信息
-            height, width = frame.shape[:2]
+            # 获取图片信息（使用RGB转换后的尺寸）
+            height, width = frame_rgb.shape[:2]
             file_size = file_path.stat().st_size
             
-            logger.info(f"Front camera image saved successfully: {file_path}")
+            logger.info(f"Front camera image saved successfully in RGB format: {file_path}")
             return {
                 "success": True,
-                "message": f"前置摄像头图片已保存到 {file_path}",
+                "message": f"前置摄像头图片已保存到 {file_path}（RGB格式）",
                 "file_path": str(file_path),
                 "filename": file_path.name,
                 "image_info": {
                     "width": width,
                     "height": height,
                     "file_size_bytes": file_size,
-                    "format": "JPEG"
+                    "format": "JPEG",
+                    "color_format": "RGB"
                 },
                 "capture_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
             }
@@ -829,26 +832,26 @@ def _capture_front_camera_image_internal(filename: Optional[str] = None) -> dict
             "error": f"获取前置摄像头图片异常: {str(e)}"
         }
 
-@mcp.tool()
-def capture_front_camera_image(filename: Optional[str] = None) -> dict:
-    """
-    获取前置摄像头图片并保存为JPG格式到~/image目录下
+# @mcp.tool()
+# def capture_front_camera_image(filename: Optional[str] = None) -> dict:
+#     """
+#     获取前置摄像头图片并保存为JPG格式到~/image目录下
     
-    Args:
-        filename: 可选的文件名（不含扩展名），如果不提供则使用时间戳
+#     Args:
+#         filename: 可选的文件名（不含扩展名），如果不提供则使用时间戳
         
-    Returns:
-        dict: 包含操作结果的字典
-    """
-    return _capture_front_camera_image_internal(filename)
+#     Returns:
+#         dict: 包含操作结果的字典
+#     """
+#     return _capture_front_camera_image_internal(filename)
 
 @mcp.tool()
 def capture_and_analyze_with_qwen(question: str = "") -> dict:
     """
-    用于拍摄小车前方的照片并分析图片内容，用户提到拍照或想知道前方或周围有什么时可以调用
+   拍照并返回图片中的内容，用户想拍照或想知道前方或周围有什么时可以直接调用
     
     Args:
-        question: 用户想了解的图片信息
+        question: 用户想了解的内容
         
     Returns:
         dict: 包含操作结果的字典，包括图片信息和AI分析结果
