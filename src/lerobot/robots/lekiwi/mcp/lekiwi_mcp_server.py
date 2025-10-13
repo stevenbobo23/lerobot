@@ -11,6 +11,7 @@ import logging
 import math
 import random
 from typing import Dict, Any, Optional
+from fastmcp import FastMCP
 
 # 添加父目录到路径
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
@@ -27,9 +28,6 @@ logger = logging.getLogger('LeKiwiMCP')
 if sys.platform == 'win32':
     sys.stderr.reconfigure(encoding='utf-8')
     sys.stdout.reconfigure(encoding='utf-8')
-
-# 导入 MCP 框架
-from mcp.server.fastmcp import FastMCP
 
 # 导入LeKiwi服务
 from lerobot.robots.lekiwi.mcp.lekiwi_service import get_global_service
@@ -868,6 +866,6 @@ if __name__ == "__main__":
     else:
         logger.warning("⚠️ Robot connection failed, MCP server will run in offline mode")
     
-    mcp.run(transport="http", port=8000)
+    mcp.run(transport="http", host="0.0.0.0", port=8000)
 
     # mcp.run(transport="stdio")
