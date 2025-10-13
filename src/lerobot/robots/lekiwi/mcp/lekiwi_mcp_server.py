@@ -866,6 +866,6 @@ if __name__ == "__main__":
     else:
         logger.warning("⚠️ Robot connection failed, MCP server will run in offline mode")
     
-    mcp.run(transport="http", host="0.0.0.0", port=8000)
+    # mcp.run(transport="http", host="0.0.0.0", port=8000)
 
-    # mcp.run(transport="stdio")
+    mcp.run(transport="stdio")
