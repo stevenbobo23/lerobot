@@ -258,8 +258,8 @@ def rotate_robot(direction: str, angle: float = 45.0) -> dict:
     
     Args:
         direction: 旋转方向，可选值：
-                  - 'left': 向左旋转（逆时针）
-                  - 'right': 向右旋转（顺时针）
+                  - 'rotate_left': 向左旋转（逆时针）
+                  - 'rotate_right': 向右旋转（顺时针）
         angle: 旋转角度（度），默认为45度
         
     Returns:
@@ -275,7 +275,7 @@ def rotate_robot(direction: str, angle: float = 45.0) -> dict:
         }
     
     # 验证方向参数
-    if direction not in ['left', 'right']:
+    if direction not in ['rotate_left', 'rotate_right']:
         return {
             "success": False,
             "error": f"无效的旋转方向: {direction}。有效选项: 'left', 'right'"
@@ -297,11 +297,9 @@ def rotate_robot(direction: str, angle: float = 45.0) -> dict:
     
     logger.info(f"Rotation calculation: angle={angle}°, speed={angular_speed}°/s, duration={duration:.2f}s")
     
-    # 映射方向到move_robot_for_duration的命令
-    rotation_command = "rotate_left" if direction == "left" else "rotate_right"
     
     # 执行旋转
-    result = service.move_robot_for_duration(rotation_command, duration)
+    result = service.move_robot_for_duration(direction, duration)
     
     if result["success"]:
         result["rotation_angle"] = angle
