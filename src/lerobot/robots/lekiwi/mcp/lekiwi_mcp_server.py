@@ -1266,14 +1266,14 @@ def control_multiple_arm_joints_limited(joint_positions: dict) -> dict:
             logger.warning(f"Position {original_position} for {joint_name} clamped to {clamped_position} (safe range: {joint_info['min_safe']} to {joint_info['max_safe']})")
     
     try:
-        # 发送多关节位置控制命令
-        result = service.set_arm_position(arm_positions)
+        # 使用平滑运动方法控制多个关节
+        result = _smooth_arm_motion(service, arm_positions, duration=1.0, steps=10)
         
         if result["success"]:
             joint_count = len(joint_positions)
             clamped_count = len(clamp_warnings)
             
-            result["message"] = f"成功控制{joint_count}个关节到目标位置（安全限制范围50%区间）"
+            result["message"] = f"成功平滑控制{joint_count}个关节到目标位置（安全限制范围50%区间，耗时{result['duration']}秒）"
             result["joint_positions"] = position_info
             result["joints_controlled"] = list(joint_positions.keys())
             result["clamp_warnings"] = clamp_warnings
@@ -1282,11 +1282,11 @@ def control_multiple_arm_joints_limited(joint_positions: dict) -> dict:
             if clamp_warnings:
                 result["message"] += f"，其中{clamped_count}个关节位置被安全限制"
             
-            logger.info(f"Multiple joints controlled successfully: {list(joint_positions.keys())}")
+            logger.info(f"Multiple joints controlled smoothly: {list(joint_positions.keys())}")
             if clamp_warnings:
                 logger.info(f"Clamp warnings: {clamp_warnings}")
         else:
-            logger.error(f"Multiple joints control failed: {result.get('message', '未知错误')}")
+            logger.error(f"Multiple joints smooth control failed: {result.get('error', '未知错误')}")
         
         return result
         
