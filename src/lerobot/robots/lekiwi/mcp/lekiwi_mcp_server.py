@@ -278,7 +278,7 @@ def rotate_robot(direction: str, angle: float = 45.0) -> dict:
     if direction not in ['rotate_left', 'rotate_right']:
         return {
             "success": False,
-            "error": f"无效的旋转方向: {direction}。有效选项: 'left', 'right'"
+            "error": f"无效的旋转方向: {direction}。有效选项: 'rotate_left', 'rotate_right'"
         }
     
     # 验证角度参数
