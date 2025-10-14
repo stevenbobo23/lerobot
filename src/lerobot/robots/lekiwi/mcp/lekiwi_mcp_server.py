@@ -87,11 +87,17 @@ def calculator(python_expression: str) -> dict:
 @mcp.tool()
 def move_robot(direction: str, duration: float = 1.0) -> dict:
     """
-    控制机器人移动
-    
+    控制机器人移动和旋转,机器人一秒钟转20度
     Args:
-        direction: 移动方向 ('forward', 'backward', 'left', 'right', 'rotate_left', 'rotate_right', 'stop')
-        duration: 移动持续时间（秒）
+        direction: 移动方向，可选值：
+                  - 'forward': 向前移动
+                  - 'backward': 向后移动
+                  - 'left': 向左移动
+                  - 'right': 向右移动
+                  - 'rotate_left': 向左旋转
+                  - 'rotate_right': 向右旋转
+                  - 'stop': 停止移动
+        duration: 移动持续时间（秒），默认为1.0秒
         
     Returns:
         dict: 包含操作结果的字典
@@ -334,9 +340,9 @@ def nod_head(times: int = 3, pause_duration: float = 0.3) -> dict:
 @mcp.tool()
 def reset_arm() -> dict:
     """
-    将机械臂复位到初始位置
+    将机械臂复位到初始位置（2秒慢速复位）
     
-    将所有机械臂关节复位到0度位置（夹爪除外保持当前状态）：
+    将所有机械臂关节在2秒内平滑复位到0度位置（夹爪除外保持当前状态）：
     - 肩膀水平(Pan): 0度
     - 肩膀垂直(Lift): 0度
     - 肘关节(Elbow): 0度
@@ -347,7 +353,9 @@ def reset_arm() -> dict:
     Returns:
         dict: 包含操作结果的字典
     """
-    logger.info("Resetting arm to home position")
+    import time
+    
+    logger.info("Resetting arm to home position (2 seconds smooth motion)")
     
     service = get_service()
     if service is None:
@@ -357,8 +365,8 @@ def reset_arm() -> dict:
         }
     
     try:
-        # 复位所有关节到0度（夹爪除外）
-        home_position = {
+        # 目标位置：所有关节到0度（夹爪除外）
+        target_position = {
             "arm_shoulder_pan.pos": 0,
             "arm_shoulder_lift.pos": 0,
             "arm_elbow_flex.pos": 0,
@@ -366,17 +374,61 @@ def reset_arm() -> dict:
             "arm_wrist_roll.pos": 0
         }
         
-        logger.info(f"Setting arm joints to home position: {home_position}")
-        result = service.set_arm_position(home_position)
+        # 获取当前关节位置
+        try:
+            current_state = service.robot.get_observation()
+            current_position = {
+                key: current_state.get(key, 0) for key in target_position.keys()
+            }
+            logger.info(f"Current position: {current_position}")
+        except Exception as e:
+            logger.warning(f"无法读取当前位置，使用默认值: {e}")
+            current_position = target_position.copy()
         
-        if result["success"]:
-            result["message"] = "机械臂已复位到初始位置（所有关节0度）"
-            result["home_position"] = home_position
-            logger.info("Arm reset to home position successfully")
-        else:
-            logger.error(f"Arm reset failed: {result.get('message', '未知错误')}")
+        # 插值参数
+        total_duration = 2.0  # 总持续时间2秒
+        steps = 20  # 分20步完成
+        step_duration = total_duration / steps  # 每步时间
         
-        return result
+        logger.info(f"Starting smooth reset: {steps} steps, {step_duration:.3f}s per step")
+        
+        # 逐步插值移动
+        for i in range(steps + 1):
+            # 计算插值比例 (0.0 到 1.0)
+            ratio = i / steps
+            
+            # 计算当前步的目标位置
+            interpolated_position = {}
+            for key in target_position.keys():
+                start_val = current_position[key]
+                end_val = target_position[key]
+                interpolated_position[key] = start_val + (end_val - start_val) * ratio
+            
+            # 发送当前步的位置命令
+            result = service.set_arm_position(interpolated_position)
+            
+            if not result["success"]:
+                logger.error(f"Step {i}/{steps} failed: {result.get('message', '未知错误')}")
+                return {
+                    "success": False,
+                    "error": f"复位动作在第{i}步失败: {result.get('message', '未知错误')}",
+                    "completed_steps": i,
+                    "total_steps": steps
+                }
+            
+            # 除了最后一步，都需要等待
+            if i < steps:
+                time.sleep(step_duration)
+        
+        logger.info("Arm reset to home position successfully (smooth motion completed)")
+        return {
+            "success": True,
+            "message": f"机械臂已平滑复位到初始位置（耗时{total_duration}秒，{steps}步）",
+            "home_position": target_position,
+            "duration": total_duration,
+            "steps": steps,
+            "start_position": current_position
+        }
         
     except Exception as e:
         logger.error(f"Arm reset failed with exception: {e}")
