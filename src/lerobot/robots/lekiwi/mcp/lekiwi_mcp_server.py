@@ -1168,6 +1168,25 @@ def control_multiple_arm_joints_limited(joint_positions: dict) -> dict:
     """
     logger.info(f"Controlling multiple arm joints (limited range): {joint_positions}")
     
+    # 如果参数是字符串，尝试解析为JSON
+    if isinstance(joint_positions, str):
+        try:
+            import json
+            joint_positions = json.loads(joint_positions)
+            logger.info(f"Parsed string to dict: {joint_positions}")
+        except json.JSONDecodeError as e:
+            return {
+                "success": False,
+                "error": f"参数格式错误，无法解析JSON字符串: {str(e)}"
+            }
+    
+    # 验证参数类型
+    if not isinstance(joint_positions, dict):
+        return {
+            "success": False,
+            "error": f"参数类型错误，期望 dict 类型，得到 {type(joint_positions).__name__}"
+        }
+    
     service = get_service()
     if service is None:
         return {
