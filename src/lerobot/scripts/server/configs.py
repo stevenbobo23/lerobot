@@ -51,7 +51,7 @@ class PolicyServerConfig:
 
     # Networking configuration
     host: str = field(default="localhost", metadata={"help": "Host address to bind the server to"})
-    port: int = field(default=8080, metadata={"help": "Port number to bind the server to"})
+    port: int = field(default=6000, metadata={"help": "Port number to bind the server to"})
 
     # Timing configuration
     fps: int = field(default=DEFAULT_FPS, metadata={"help": "Frames per second"})
@@ -121,7 +121,7 @@ class RobotClientConfig:
     task: str = field(default="", metadata={"help": "Task instruction for the robot to execute"})
 
     # Network configuration
-    server_address: str = field(default="localhost:8080", metadata={"help": "Server address to connect to"})
+    server_address: str = field(default="localhost:6000", metadata={"help": "Server address to connect to"})
 
     # Device configuration
     policy_device: str = field(default="cpu", metadata={"help": "Device for policy inference"})

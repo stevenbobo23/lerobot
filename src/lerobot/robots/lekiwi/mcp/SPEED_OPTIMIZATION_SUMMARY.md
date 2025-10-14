@@ -67,7 +67,7 @@ def _configure_arm_servo_speed(self, speed_ratio: float = 0.2):
 
 ### HTTP API调用
 ```bash
-curl -X POST http://localhost:8080/control \
+curl -X POST http://localhost:6000/control \
   -H "Content-Type: application/json" \
   -d '{"arm_shoulder_pan.pos": 30}'
 ```
