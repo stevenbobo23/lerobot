@@ -15,8 +15,10 @@ StandardOutput=append:/home/bobo/tuya_mcp_service.log
 StandardError=append:/home/bobo/tuya_mcp_service.log
 
 # 环境变量
-Environment="PATH=/home/bobo/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PATH=/home/bobo/miniconda3/bin:/home/bobo/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="HOME=/home/bobo"
+Environment="CONDA_EXE=/home/bobo/miniconda3/bin/conda"
+Environment="CONDA_PREFIX=/home/bobo/miniconda3"
 
 [Install]
 WantedBy=multi-user.target
