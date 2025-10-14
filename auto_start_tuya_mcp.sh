@@ -14,24 +14,11 @@ echo "========================================" >> "$LOG_FILE"
 echo "$(date): Waiting 10 seconds for system to stabilize..." >> "$LOG_FILE"
 sleep 10
 
-# 初始化 conda（根据你的实际 conda 安装路径调整）
-# 常见路径包括：/home/bobo/miniconda3 或 /home/bobo/anaconda3
-CONDA_BASE="/home/bobo/miniconda3"
-
-if [ ! -d "$CONDA_BASE" ]; then
-    # 尝试备选路径
-    CONDA_BASE="/home/bobo/anaconda3"
-fi
-
-if [ ! -d "$CONDA_BASE" ]; then
-    echo "$(date): ERROR - Conda installation not found!" >> "$LOG_FILE"
-    exit 1
-fi
-
-echo "$(date): Found conda at: $CONDA_BASE" >> "$LOG_FILE"
+# 初始化 conda（假设 conda 已经在 PATH 中或通过 .bashrc 初始化）
+echo "$(date): Initializing conda environment..." >> "$LOG_FILE"
 
 # 初始化 conda for bash
-source "$CONDA_BASE/etc/profile.d/conda.sh"
+source ~/miniconda3/etc/profile.d/conda.sh
 
 if [ $? -ne 0 ]; then
     echo "$(date): ERROR - Failed to initialize conda" >> "$LOG_FILE"
