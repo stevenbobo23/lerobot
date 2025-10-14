@@ -1142,7 +1142,7 @@ def capture_and_analyze_with_qwen(question: str = "") -> dict:
         }
 
 @mcp.tool()
-def control_multiple_arm_joints_limited(joint_positions: Optional[dict] = None) -> dict:
+def control_multiple_arm_joints_limited(joint_positions: dict) -> dict:
     """
     同时控制机械臂多个关节到指定位置，限制运行范围在最大最小值的50%区间内
     
@@ -1161,7 +1161,7 @@ def control_multiple_arm_joints_limited(joint_positions: Optional[dict] = None) 
                             "elbow_flex": -20,
                             "gripper": 25
                         }
-                        如果为None或空字典，则为所有关节生成随机值
+                        如果为空字典，则为所有关节生成随机值，该字段不能为空
         
     Returns:
         dict: 包含操作结果的字典
