@@ -216,15 +216,13 @@ def calculator(python_expression: str) -> dict:
 @mcp.tool()
 def move_robot(direction: str, duration: float = 1.0) -> dict:
     """
-    控制机器人移动和旋转,机器人一秒钟转20度
+    控制机器人移动（不包含旋转）
     Args:
         direction: 移动方向，可选值：
                   - 'forward': 向前移动
                   - 'backward': 向后移动
                   - 'left': 向左移动
                   - 'right': 向右移动
-                  - 'rotate_left': 向左旋转
-                  - 'rotate_right': 向右旋转
                   - 'stop': 停止移动
         duration: 移动持续时间（秒），默认为1.0秒
         
@@ -240,8 +238,79 @@ def move_robot(direction: str, duration: float = 1.0) -> dict:
             "error": "LeKiwi服务不可用"
         }
     
+    # 验证方向参数
+    valid_directions = ['forward', 'backward', 'left', 'right', 'stop']
+    if direction not in valid_directions:
+        return {
+            "success": False,
+            "error": f"无效的移动方向: {direction}。有效选项: {', '.join(valid_directions)}"
+        }
+    
     # 使用服务方法直接控制
     return service.move_robot_for_duration(direction, duration)
+
+@mcp.tool()
+def rotate_robot(direction: str, angle: float = 45.0) -> dict:
+    """
+    控制机器人旋转指定角度
+    
+    机器人旋转速度约为30度/秒（可通过set_speed_level调整）
+    
+    Args:
+        direction: 旋转方向，可选值：
+                  - 'left': 向左旋转（逆时针）
+                  - 'right': 向右旋转（顺时针）
+        angle: 旋转角度（度），默认为45度
+        
+    Returns:
+        dict: 包含操作结果的字典
+    """
+    logger.info(f"Rotating robot {direction} by {angle} degrees")
+    
+    service = get_service()
+    if service is None:
+        return {
+            "success": False,
+            "error": "LeKiwi服务不可用"
+        }
+    
+    # 验证方向参数
+    if direction not in ['left', 'right']:
+        return {
+            "success": False,
+            "error": f"无效的旋转方向: {direction}。有效选项: 'left', 'right'"
+        }
+    
+    # 验证角度参数
+    if angle <= 0:
+        return {
+            "success": False,
+            "error": f"旋转角度必须大于0，当前值: {angle}"
+        }
+    
+    # 获取当前角速度配置
+    speed_config = speed_levels[current_speed_index]
+    angular_speed = speed_config["theta"]  # deg/s
+    
+    # 计算旋转所需时间
+    duration = angle / angular_speed
+    
+    logger.info(f"Rotation calculation: angle={angle}°, speed={angular_speed}°/s, duration={duration:.2f}s")
+    
+    # 映射方向到move_robot_for_duration的命令
+    rotation_command = "rotate_left" if direction == "left" else "rotate_right"
+    
+    # 执行旋转
+    result = service.move_robot_for_duration(rotation_command, duration)
+    
+    if result["success"]:
+        result["rotation_angle"] = angle
+        result["rotation_direction"] = direction
+        result["angular_speed"] = angular_speed
+        result["message"] = f"机器人已向{direction}旋转{angle}度（耗时{duration:.2f}秒，速度{angular_speed}度/秒）"
+        logger.info(f"Robot rotation completed: {direction} {angle}° in {duration:.2f}s")
+    
+    return result
 
 @mcp.tool()
 def move_robot_with_custom_speed(x_vel: float, y_vel: float, theta_vel: float, duration: float = 1.0) -> dict:
