@@ -5,8 +5,8 @@
 
 echo "=== LeKiwi HTTP控制器启动脚本 ==="
 echo "功能: 启动Web控制界面和REST API服务"
-echo "端口: 6000"
-echo "界面: http://localhost:6000"
+echo "端口: 8080"
+echo "界面: http://localhost:8080"
 echo "==============================="
 
 # 检查是否在正确的目录

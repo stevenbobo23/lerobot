@@ -198,7 +198,7 @@ def setup_routes():
         })
 
 
-def run_server(host="0.0.0.0", port=6000, robot_id="my_awesome_kiwi"):
+def run_server(host="0.0.0.0", port=8080, robot_id="my_awesome_kiwi"):
     """启动HTTP服务器"""
     global app, service, logger
     
@@ -276,8 +276,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--port", 
         type=int, 
-        default=6000,
-        help="服务器端口（默认: 6000"
+        default=8080,
+        help="服务器端口（默认: 8080"
     )
     
     args = parser.parse_args()
