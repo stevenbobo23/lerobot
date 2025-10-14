@@ -103,10 +103,55 @@ def _smooth_arm_motion(service, target_positions: Dict[str, float], duration: fl
             logger.warning(f"无法读取当前位置，使用默认值: {e}")
             current_positions = target_positions.copy()
         
+        # 检查是否需要移动（当前位置与目标位置是否相同）
+        needs_movement = False
+        for key in target_positions.keys():
+            if abs(current_positions[key] - target_positions[key]) > 0.5:  # 误差超过0.5度才移动
+                needs_movement = True
+                break
+        
+        if not needs_movement:
+            logger.info("目标位置与当前位置相同，无需移动")
+            return {
+                "success": True,
+                "duration": 0,
+                "steps": 0,
+                "start_positions": current_positions,
+                "target_positions": target_positions,
+                "skipped": True,
+                "reason": "当前位置已是目标位置"
+            }
+        
+        # 临时提高舵机速度以配合软件插值
+        # 计算需要的舵机速度：让舵机能在step_duration内完成小步移动
         step_duration = duration / steps
-        logger.info(f"Starting smooth motion: {steps} steps, {step_duration:.3f}s per step")
+        
+        # 提取涉及的关节名称
+        arm_motors = []
+        for key in target_positions.keys():
+            # 从 "arm_elbow_flex.pos" 提取 "arm_elbow_flex"
+            motor_name = key.split('.')[0]
+            if motor_name not in arm_motors:
+                arm_motors.append(motor_name)
+        
+        # 临时设置较高的舵机速度（80%速度，保证能快速响应每步的位置变化）
+        temp_speed_ratio = 0.8
+        max_speed = 2400
+        temp_goal_speed = int(max_speed * temp_speed_ratio)
+        temp_acceleration = max(10, int(100 * temp_speed_ratio))
+        
+        logger.info(f"临时提高舵机速度: Goal_Speed={temp_goal_speed}, Goal_Acc={temp_acceleration}")
+        
+        for motor in arm_motors:
+            try:
+                service.robot.bus.write("Goal_Acc", motor, temp_acceleration)
+                service.robot.bus.write("Goal_Speed", motor, temp_goal_speed)
+            except Exception as e:
+                logger.warning(f"设置舵机 {motor} 临时速度失败: {e}")
         
         # 逐步插值移动
+        logger.info(f"Starting smooth motion: {steps} steps, {step_duration:.3f}s per step")
+        
         for i in range(steps + 1):
             # 计算插值比例 (0.0 到 1.0)
             ratio = i / steps
@@ -123,6 +168,8 @@ def _smooth_arm_motion(service, target_positions: Dict[str, float], duration: fl
             
             if not result["success"]:
                 logger.error(f"Step {i}/{steps} failed: {result.get('message', '未知错误')}")
+                # 恢复原始舵机速度
+                service._configure_arm_servo_speed(service.config.arm_servo_speed)
                 return {
                     "success": False,
                     "error": f"平滑运动在第{i}步失败: {result.get('message', '未知错误')}",
@@ -134,6 +181,10 @@ def _smooth_arm_motion(service, target_positions: Dict[str, float], duration: fl
             if i < steps:
                 time.sleep(step_duration)
         
+        # 恢复原始舵机速度配置
+        logger.info(f"恢复原始舵机速度: {service.config.arm_servo_speed*100:.0f}%")
+        service._configure_arm_servo_speed(service.config.arm_servo_speed)
+        
         return {
             "success": True,
             "duration": duration,
@@ -144,6 +195,11 @@ def _smooth_arm_motion(service, target_positions: Dict[str, float], duration: fl
         
     except Exception as e:
         logger.error(f"Smooth arm motion failed: {e}")
+        # 确保恢复原始舵机速度
+        try:
+            service._configure_arm_servo_speed(service.config.arm_servo_speed)
+        except:
+            pass
         return {
             "success": False,
             "error": f"平滑运动执行异常: {str(e)}"
