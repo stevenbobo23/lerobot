@@ -76,6 +76,79 @@ def get_service():
     
     return service
 
+def _smooth_arm_motion(service, target_positions: Dict[str, float], duration: float = 1.0, steps: int = 10) -> Dict[str, Any]:
+    """
+    平滑移动机械臂到目标位置的内部辅助方法
+    
+    Args:
+        service: LeKiwi服务实例
+        target_positions: 目标关节位置字典，例如 {"arm_elbow_flex.pos": -90}
+        duration: 运动总持续时间（秒），默认1秒
+        steps: 插值步数，默认10步
+        
+    Returns:
+        dict: 包含操作结果的字典
+    """
+    import time
+    
+    try:
+        # 获取当前关节位置
+        try:
+            current_state = service.robot.get_observation()
+            current_positions = {
+                key: current_state.get(key, 0) for key in target_positions.keys()
+            }
+            logger.info(f"Current positions: {current_positions}")
+        except Exception as e:
+            logger.warning(f"无法读取当前位置，使用默认值: {e}")
+            current_positions = target_positions.copy()
+        
+        step_duration = duration / steps
+        logger.info(f"Starting smooth motion: {steps} steps, {step_duration:.3f}s per step")
+        
+        # 逐步插值移动
+        for i in range(steps + 1):
+            # 计算插值比例 (0.0 到 1.0)
+            ratio = i / steps
+            
+            # 计算当前步的目标位置
+            interpolated_positions = {}
+            for key in target_positions.keys():
+                start_val = current_positions[key]
+                end_val = target_positions[key]
+                interpolated_positions[key] = start_val + (end_val - start_val) * ratio
+            
+            # 发送当前步的位置命令
+            result = service.set_arm_position(interpolated_positions)
+            
+            if not result["success"]:
+                logger.error(f"Step {i}/{steps} failed: {result.get('message', '未知错误')}")
+                return {
+                    "success": False,
+                    "error": f"平滑运动在第{i}步失败: {result.get('message', '未知错误')}",
+                    "completed_steps": i,
+                    "total_steps": steps
+                }
+            
+            # 除了最后一步，都需要等待
+            if i < steps:
+                time.sleep(step_duration)
+        
+        return {
+            "success": True,
+            "duration": duration,
+            "steps": steps,
+            "start_positions": current_positions,
+            "target_positions": target_positions
+        }
+        
+    except Exception as e:
+        logger.error(f"Smooth arm motion failed: {e}")
+        return {
+            "success": False,
+            "error": f"平滑运动执行异常: {str(e)}"
+        }
+
 # Add an addition tool
 @mcp.tool()
 def calculator(python_expression: str) -> dict:
@@ -340,9 +413,9 @@ def nod_head(times: int = 3, pause_duration: float = 0.3) -> dict:
 @mcp.tool()
 def reset_arm() -> dict:
     """
-    将机械臂复位到初始位置（2秒慢速复位）
+    将机械臂复位到初始位置（1秒平滑复位）
     
-    将所有机械臂关节在2秒内平滑复位到0度位置（夹爪除外保持当前状态）：
+    将所有机械臂关节在1秒内平滑复位到0度位置（夹爪除外保持当前状态）：
     - 肩膀水平(Pan): 0度
     - 肩膀垂直(Lift): 0度
     - 肘关节(Elbow): 0度
@@ -353,9 +426,7 @@ def reset_arm() -> dict:
     Returns:
         dict: 包含操作结果的字典
     """
-    import time
-    
-    logger.info("Resetting arm to home position (2 seconds smooth motion)")
+    logger.info("Resetting arm to home position (1 second smooth motion)")
     
     service = get_service()
     if service is None:
@@ -364,83 +435,31 @@ def reset_arm() -> dict:
             "error": "LeKiwi服务不可用"
         }
     
-    try:
-        # 目标位置：所有关节到0度（夹爪除外）
-        target_position = {
-            "arm_shoulder_pan.pos": 0,
-            "arm_shoulder_lift.pos": 0,
-            "arm_elbow_flex.pos": 0,
-            "arm_wrist_flex.pos": 0,
-            "arm_wrist_roll.pos": 0
-        }
-        
-        # 获取当前关节位置
-        try:
-            current_state = service.robot.get_observation()
-            current_position = {
-                key: current_state.get(key, 0) for key in target_position.keys()
-            }
-            logger.info(f"Current position: {current_position}")
-        except Exception as e:
-            logger.warning(f"无法读取当前位置，使用默认值: {e}")
-            current_position = target_position.copy()
-        
-        # 插值参数
-        total_duration = 2.0  # 总持续时间2秒
-        steps = 20  # 分20步完成
-        step_duration = total_duration / steps  # 每步时间
-        
-        logger.info(f"Starting smooth reset: {steps} steps, {step_duration:.3f}s per step")
-        
-        # 逐步插值移动
-        for i in range(steps + 1):
-            # 计算插值比例 (0.0 到 1.0)
-            ratio = i / steps
-            
-            # 计算当前步的目标位置
-            interpolated_position = {}
-            for key in target_position.keys():
-                start_val = current_position[key]
-                end_val = target_position[key]
-                interpolated_position[key] = start_val + (end_val - start_val) * ratio
-            
-            # 发送当前步的位置命令
-            result = service.set_arm_position(interpolated_position)
-            
-            if not result["success"]:
-                logger.error(f"Step {i}/{steps} failed: {result.get('message', '未知错误')}")
-                return {
-                    "success": False,
-                    "error": f"复位动作在第{i}步失败: {result.get('message', '未知错误')}",
-                    "completed_steps": i,
-                    "total_steps": steps
-                }
-            
-            # 除了最后一步，都需要等待
-            if i < steps:
-                time.sleep(step_duration)
-        
-        logger.info("Arm reset to home position successfully (smooth motion completed)")
-        return {
-            "success": True,
-            "message": f"机械臂已平滑复位到初始位置（耗时{total_duration}秒，{steps}步）",
-            "home_position": target_position,
-            "duration": total_duration,
-            "steps": steps,
-            "start_position": current_position
-        }
-        
-    except Exception as e:
-        logger.error(f"Arm reset failed with exception: {e}")
-        return {
-            "success": False,
-            "error": f"机械臂复位执行异常: {str(e)}"
-        }
+    # 目标位置：所有关节到0度（夹爪除外）
+    target_positions = {
+        "arm_shoulder_pan.pos": 0,
+        "arm_shoulder_lift.pos": 0,
+        "arm_elbow_flex.pos": 0,
+        "arm_wrist_flex.pos": 0,
+        "arm_wrist_roll.pos": 0
+    }
+    
+    # 使用平滑运动方法
+    result = _smooth_arm_motion(service, target_positions, duration=1.0, steps=10)
+    
+    if result["success"]:
+        result["message"] = f"机械臂已平滑复位到初始位置（耗时{result['duration']}秒，{result['steps']}步）"
+        result["home_position"] = target_positions
+        logger.info("Arm reset to home position successfully")
+    else:
+        logger.error(f"Arm reset failed: {result.get('error', '未知错误')}")
+    
+    return result
 
 @mcp.tool()
 def stand_at_attention() -> dict:
     """
-    控制机器人立正姿态
+    控制机器人立正姿态（1秒平滑运动）
     
     将肘关节设置到-90度实现立正姿态：
     - 肘关节(Elbow): -90度
@@ -448,7 +467,7 @@ def stand_at_attention() -> dict:
     Returns:
         dict: 包含操作结果的字典
     """
-    logger.info("Setting robot to stand at attention position")
+    logger.info("Setting robot to stand at attention position (1 second smooth motion)")
     
     service = get_service()
     if service is None:
@@ -457,28 +476,20 @@ def stand_at_attention() -> dict:
             "error": "LeKiwi服务不可用"
         }
     
-    try:
-        # 设置肘关节到-90度
-        attention_position = {"arm_elbow_flex.pos": -90}
-        
-        logger.info(f"Setting elbow to attention position: {attention_position}")
-        result = service.set_arm_position(attention_position)
-        
-        if result["success"]:
-            result["message"] = "机器人已设置为立正姿态（肘关节-90度）"
-            result["attention_position"] = attention_position
-            logger.info("Stand at attention position set successfully")
-        else:
-            logger.error(f"Stand at attention failed: {result.get('message', '未知错误')}")
-        
-        return result
-        
-    except Exception as e:
-        logger.error(f"Stand at attention failed with exception: {e}")
-        return {
-            "success": False,
-            "error": f"立正姿态设置执行异常: {str(e)}"
-        }
+    # 目标位置：肘关节到-90度
+    attention_positions = {"arm_elbow_flex.pos": -90}
+    
+    # 使用平滑运动方法
+    result = _smooth_arm_motion(service, attention_positions, duration=1.0, steps=10)
+    
+    if result["success"]:
+        result["message"] = f"机器人已平滑设置为立正姿态（肘关节-90度，耗时{result['duration']}秒）"
+        result["attention_position"] = attention_positions
+        logger.info("Stand at attention position set successfully")
+    else:
+        logger.error(f"Stand at attention failed: {result.get('error', '未知错误')}")
+    
+    return result
 
 @mcp.tool()
 def shake_head(times: int = 3, pause_duration: float = 0.3) -> dict:
@@ -567,10 +578,10 @@ def shake_head(times: int = 3, pause_duration: float = 0.3) -> dict:
 @mcp.tool()
 def twist_waist(times: int = 3, pause_duration: float = 0.3) -> dict:
     """
-    控制机器人扭腰动作
+    控制机器人扭腰动作（使用1秒平滑运动）
     
     通过控制肩膀水平旋转(Shoulder Pan)实现扭腰效果：
-    从-10度到10度再回到-10度，可重复多次
+    从-10度到10度再回到0度，可重复多次
     
     Args:
         times: 扭腰次数，默认3次
@@ -581,7 +592,7 @@ def twist_waist(times: int = 3, pause_duration: float = 0.3) -> dict:
     """
     import time
     
-    logger.info(f"Performing twist waist action: {times} times, pause: {pause_duration}s")
+    logger.info(f"Performing twist waist action: {times} times, pause: {pause_duration}s (smooth motion)")
     
     service = get_service()
     if service is None:
@@ -592,17 +603,18 @@ def twist_waist(times: int = 3, pause_duration: float = 0.3) -> dict:
     
     try:
         results = []
+        motion_duration = 1.0  # 每次运动1秒
         
         for i in range(times):
             # 向左扭腰（肩膀水平旋转到-10度）
-            logger.info(f"Twist {i+1}/{times}: Moving shoulder pan to -10 degrees")
-            left_result = service.set_arm_position({"arm_shoulder_pan.pos": -10})
+            logger.info(f"Twist {i+1}/{times}: Smoothly moving shoulder pan to -10 degrees")
+            left_result = _smooth_arm_motion(service, {"arm_shoulder_pan.pos": -10}, duration=motion_duration, steps=10)
             results.append({"cycle": i+1, "phase": "left", "position": -10, "success": left_result["success"]})
             
             if not left_result["success"]:
                 return {
                     "success": False,
-                    "error": f"扭腰动作第{i+1}次失败（向左）: {left_result.get('message', '未知错误')}",
+                    "error": f"扭腰动作第{i+1}次失败（向左）: {left_result.get('error', '未知错误')}",
                     "completed_cycles": i,
                     "results": results
                 }
@@ -610,14 +622,14 @@ def twist_waist(times: int = 3, pause_duration: float = 0.3) -> dict:
             time.sleep(pause_duration)
             
             # 向右扭腰（肩膀水平旋转到10度）
-            logger.info(f"Twist {i+1}/{times}: Moving shoulder pan to 10 degrees")
-            right_result = service.set_arm_position({"arm_shoulder_pan.pos": 10})
+            logger.info(f"Twist {i+1}/{times}: Smoothly moving shoulder pan to 10 degrees")
+            right_result = _smooth_arm_motion(service, {"arm_shoulder_pan.pos": 10}, duration=motion_duration, steps=10)
             results.append({"cycle": i+1, "phase": "right", "position": 10, "success": right_result["success"]})
             
             if not right_result["success"]:
                 return {
                     "success": False,
-                    "error": f"扭腰动作第{i+1}次失败（向右）: {right_result.get('message', '未知错误')}",
+                    "error": f"扭腰动作第{i+1}次失败（向右）: {right_result.get('error', '未知错误')}",
                     "completed_cycles": i,
                     "results": results
                 }
@@ -627,17 +639,18 @@ def twist_waist(times: int = 3, pause_duration: float = 0.3) -> dict:
                 time.sleep(pause_duration)
         
         # 回到中间位置
-        logger.info("Returning shoulder pan to center position (0 degrees)")
-        center_result = service.set_arm_position({"arm_shoulder_pan.pos": 0})
+        logger.info("Smoothly returning shoulder pan to center position (0 degrees)")
+        center_result = _smooth_arm_motion(service, {"arm_shoulder_pan.pos": 0}, duration=motion_duration, steps=10)
         results.append({"cycle": "final", "phase": "center", "position": 0, "success": center_result["success"]})
         
         logger.info(f"Twist waist action completed successfully: {times} cycles")
         return {
             "success": True,
-            "message": f"扭腰动作完成，共{times}次，每次停顿{pause_duration}秒",
+            "message": f"扭腰动作完成，共{times}次，每次停顿{pause_duration}秒（使用平滑运动）",
             "cycles": times,
             "pause_duration": pause_duration,
-            "total_duration": times * pause_duration * 2,
+            "motion_duration": motion_duration,
+            "total_duration": times * (motion_duration * 2 + pause_duration) + motion_duration,
             "results": results
         }
         
@@ -738,12 +751,12 @@ def control_arm_joint_limited(joint_name: str, position: float) -> dict:
         logger.warning(f"Position {original_position} for {joint_name} clamped to {clamped_position} (safe range: {joint_info['min_safe']} to {joint_info['max_safe']})")
     
     try:
-        # 发送关节位置控制命令
+        # 使用平滑运动方法控制关节
         arm_positions = {joint_info["key"]: clamped_position}
-        result = service.set_arm_position(arm_positions)
+        result = _smooth_arm_motion(service, arm_positions, duration=1.0, steps=10)
         
         if result["success"]:
-            result["message"] = f"{joint_info['description']}已移动到{clamped_position}度（安全限制范围: {joint_info['min_safe']}°~{joint_info['max_safe']}°）"
+            result["message"] = f"{joint_info['description']}已平滑移动到{clamped_position}度（安全限制范围: {joint_info['min_safe']}°~{joint_info['max_safe']}°，耗时{result['duration']}秒）"
             result["joint_name"] = joint_name
             result["joint_description"] = joint_info["description"]
             result["original_position"] = original_position
@@ -757,9 +770,9 @@ def control_arm_joint_limited(joint_name: str, position: float) -> dict:
             if result["was_clamped"]:
                 result["clamp_warning"] = f"原始位置{original_position}°超出安全范围，已限制到{clamped_position}°"
             
-            logger.info(f"Joint {joint_name} moved to {clamped_position} degrees successfully")
+            logger.info(f"Joint {joint_name} smoothly moved to {clamped_position} degrees successfully")
         else:
-            logger.error(f"Joint {joint_name} control failed: {result.get('message', '未知错误')}")
+            logger.error(f"Joint {joint_name} control failed: {result.get('error', '未知错误')}")
         
         return result
         
