@@ -1142,7 +1142,7 @@ def capture_and_analyze_with_qwen(question: str = "") -> dict:
         }
 
 @mcp.tool()
-def control_multiple_arm_joints_limited(joint_positions: dict) -> dict:
+def control_multiple_arm_joints_limited(joint_positions: Optional[dict] = None) -> dict:
     """
     同时控制机械臂多个关节到指定位置，限制运行范围在最大最小值的50%区间内
     
@@ -1161,6 +1161,7 @@ def control_multiple_arm_joints_limited(joint_positions: dict) -> dict:
                             "elbow_flex": -20,
                             "gripper": 25
                         }
+                        如果为None或空字典，则为所有关节生成随机值
         
     Returns:
         dict: 包含操作结果的字典
@@ -1213,6 +1214,18 @@ def control_multiple_arm_joints_limited(joint_positions: dict) -> dict:
             "description": "夹爪"
         }
     }
+    
+    # 如果参数为None或空字典，为所有关节生成随机值
+    if joint_positions is None or len(joint_positions) == 0:
+        logger.info("参数为空，为所有关节生成随机位置")
+        joint_positions = {}
+        for joint_name, joint_info in joint_mapping.items():
+            # 在安全范围内生成随机值
+            random_position = random.uniform(joint_info["min_safe"], joint_info["max_safe"])
+            # 四舍五入到1位小数
+            joint_positions[joint_name] = round(random_position, 1)
+        
+        logger.info(f"生成的随机关节位置: {joint_positions}")
     
     # 验证输入并处理关节位置
     arm_positions = {}
