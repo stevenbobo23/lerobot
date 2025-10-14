@@ -254,7 +254,7 @@ def rotate_robot(direction: str, angle: float = 45.0) -> dict:
     """
     控制机器人旋转指定角度
     
-    机器人旋转速度约为30度/秒（可通过set_speed_level调整）
+    机器人旋转速度约为20度/秒（可通过set_speed_level调整）
     
     Args:
         direction: 旋转方向，可选值：
@@ -288,14 +288,11 @@ def rotate_robot(direction: str, angle: float = 45.0) -> dict:
             "error": f"旋转角度必须大于0，当前值: {angle}"
         }
     
-    # 获取当前角速度配置
-    speed_config = speed_levels[current_speed_index]
-    angular_speed = speed_config["theta"]  # deg/s
     
     # 计算旋转所需时间
-    duration = angle / angular_speed
+    duration = angle / 20
     
-    logger.info(f"Rotation calculation: angle={angle}°, speed={angular_speed}°/s, duration={duration:.2f}s")
+    logger.info(f"Rotation calculation: angle={angle}°, duration={duration:.2f}s")
     
     
     # 执行旋转
@@ -304,7 +301,6 @@ def rotate_robot(direction: str, angle: float = 45.0) -> dict:
     if result["success"]:
         result["rotation_angle"] = angle
         result["rotation_direction"] = direction
-        result["angular_speed"] = angular_speed
         result["message"] = f"机器人已向{direction}旋转{angle}度（耗时{duration:.2f}秒，速度{angular_speed}度/秒）"
         logger.info(f"Robot rotation completed: {direction} {angle}° in {duration:.2f}s")
     
