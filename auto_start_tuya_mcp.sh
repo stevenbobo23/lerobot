@@ -14,39 +14,35 @@ echo "========================================" >> "$LOG_FILE"
 echo "$(date): Waiting 10 seconds for system to stabilize..." >> "$LOG_FILE"
 sleep 10
 
-# 初始化 conda（使用 eval 方式，适用于 systemd 服务环境）
-echo "$(date): Initializing conda environment..." >> "$LOG_FILE"
+# 初始化 conda（根据你的实际 conda 安装路径调整）
+# 常见路径包括：/home/bobo/miniconda3 或 /home/bobo/anaconda3
+CONDA_BASE="/home/bobo/miniconda3"
 
-# 方法1: 尝试使用 conda.sh 初始化
-if [ -f ~/miniconda3/etc/profile.d/conda.sh ]; then
-    source ~/miniconda3/etc/profile.d/conda.sh
-    if [ $? -eq 0 ]; then
-        echo "$(date): Conda initialized successfully using conda.sh" >> "$LOG_FILE"
-    fi
+if [ ! -d "$CONDA_BASE" ]; then
+    # 尝试备选路径
+    CONDA_BASE="/home/bobo/anaconda3"
 fi
 
-# 方法2: 如果方法1失败，直接使用 conda 可执行文件
-if ! command -v conda &> /dev/null; then
-    echo "$(date): Trying alternative conda initialization..." >> "$LOG_FILE"
-    export PATH="/home/bobo/miniconda3/bin:$PATH"
-    eval "$(/home/bobo/miniconda3/bin/conda shell.bash hook)"
-    if [ $? -ne 0 ]; then
-        echo "$(date): ERROR - Failed to initialize conda" >> "$LOG_FILE"
-        exit 1
-    fi
-    echo "$(date): Conda initialized successfully using shell hook" >> "$LOG_FILE"
-fi
-
-# 激活 lerobot 环境
-echo "$(date): Activating lerobot conda environment..." >> "$LOG_FILE"
-
-# 验证 conda 命令是否可用
-if ! command -v conda &> /dev/null; then
-    echo "$(date): ERROR - conda command not found after initialization" >> "$LOG_FILE"
+if [ ! -d "$CONDA_BASE" ]; then
+    echo "$(date): ERROR - Conda installation not found!" >> "$LOG_FILE"
     exit 1
 fi
 
-conda activate lerobot >> "$LOG_FILE" 2>&1
+echo "$(date): Found conda at: $CONDA_BASE" >> "$LOG_FILE"
+
+# 初始化 conda for bash
+source "$CONDA_BASE/etc/profile.d/conda.sh"
+
+if [ $? -ne 0 ]; then
+    echo "$(date): ERROR - Failed to initialize conda" >> "$LOG_FILE"
+    exit 1
+fi
+
+echo "$(date): Conda initialized successfully" >> "$LOG_FILE"
+
+# 激活 lerobot 环境
+echo "$(date): Activating lerobot conda environment..." >> "$LOG_FILE"
+conda activate lerobot
 
 if [ $? -ne 0 ]; then
     echo "$(date): ERROR - Failed to activate lerobot environment" >> "$LOG_FILE"
