@@ -1142,7 +1142,7 @@ def capture_and_analyze_with_qwen(question: str = "") -> dict:
         }
 
 @mcp.tool()
-def control_multiple_arm_joints_limited(joint_positions: dict) -> dict:
+def control_multiple_arm_joints_limited(joint_positions: str) -> dict:
     """
     同时控制机械臂多个关节到指定位置，限制运行范围在最大最小值的50%区间内
     
@@ -1155,36 +1155,31 @@ def control_multiple_arm_joints_limited(joint_positions: dict) -> dict:
     - gripper (夹爪): 0 到 50 度
     
     Args:
-        joint_positions: 关节位置字典，格式如下：
-                        {
-                            "shoulder_pan": 30,
-                            "elbow_flex": -20,
-                            "gripper": 25
-                        }
-                        如果为空字典，则为所有关节生成随机值，该字段不能为空
+        joint_positions: 关节位置JSON字符串，格式如下：
+                        '{"shoulder_pan": 30, "elbow_flex": -20, "gripper": 25}'
+                        如果为空字符串 "{}"，则为所有关节生成随机值
         
     Returns:
         dict: 包含操作结果的字典
     """
     logger.info(f"Controlling multiple arm joints (limited range): {joint_positions}")
     
-    # 如果参数是字符串，尝试解析为JSON
-    if isinstance(joint_positions, str):
-        try:
-            import json
-            joint_positions = json.loads(joint_positions)
-            logger.info(f"Parsed string to dict: {joint_positions}")
-        except json.JSONDecodeError as e:
-            return {
-                "success": False,
-                "error": f"参数格式错误，无法解析JSON字符串: {str(e)}"
-            }
-    
-    # 验证参数类型
-    if not isinstance(joint_positions, dict):
+    # 解析JSON字符串为字典
+    try:
+        import json
+        joint_positions_dict = json.loads(joint_positions)
+        logger.info(f"Parsed JSON string to dict: {joint_positions_dict}")
+    except json.JSONDecodeError as e:
         return {
             "success": False,
-            "error": f"参数类型错误，期望 dict 类型，得到 {type(joint_positions).__name__}"
+            "error": f"参数格式错误，无法解析JSON字符串: {str(e)}"
+        }
+    
+    # 验证解析后的类型
+    if not isinstance(joint_positions_dict, dict):
+        return {
+            "success": False,
+            "error": f"解析后的参数类型错误，期望 dict 类型，得到 {type(joint_positions_dict).__name__}"
         }
     
     service = get_service()
@@ -1234,24 +1229,24 @@ def control_multiple_arm_joints_limited(joint_positions: dict) -> dict:
         }
     }
     
-    # 如果参数为None或空字典，为所有关节生成随机值
-    if joint_positions is None or len(joint_positions) == 0:
+    # 如果参数为空字典，为所有关节生成随机值
+    if len(joint_positions_dict) == 0:
         logger.info("参数为空，为所有关节生成随机位置")
-        joint_positions = {}
+        joint_positions_dict = {}
         for joint_name, joint_info in joint_mapping.items():
             # 在安全范围内生成随机值
             random_position = random.uniform(joint_info["min_safe"], joint_info["max_safe"])
             # 四舍五入到1位小数
-            joint_positions[joint_name] = round(random_position, 1)
+            joint_positions_dict[joint_name] = round(random_position, 1)
         
-        logger.info(f"生成的随机关节位置: {joint_positions}")
+        logger.info(f"生成的随机关节位置: {joint_positions_dict}")
     
     # 验证输入并处理关节位置
     arm_positions = {}
     position_info = {}
     clamp_warnings = []
     
-    for joint_name, position in joint_positions.items():
+    for joint_name, position in joint_positions_dict.items():
         if joint_name not in joint_mapping:
             valid_joints = ", ".join(joint_mapping.keys())
             return {
@@ -1289,19 +1284,19 @@ def control_multiple_arm_joints_limited(joint_positions: dict) -> dict:
         result = _smooth_arm_motion(service, arm_positions, duration=1.0, steps=10)
         
         if result["success"]:
-            joint_count = len(joint_positions)
+            joint_count = len(joint_positions_dict)
             clamped_count = len(clamp_warnings)
             
             result["message"] = f"成功平滑控制{joint_count}个关节到目标位置（安全限制范围50%区间，耗时{result['duration']}秒）"
             result["joint_positions"] = position_info
-            result["joints_controlled"] = list(joint_positions.keys())
+            result["joints_controlled"] = list(joint_positions_dict.keys())
             result["clamp_warnings"] = clamp_warnings
             result["clamped_joints_count"] = clamped_count
             
             if clamp_warnings:
                 result["message"] += f"，其中{clamped_count}个关节位置被安全限制"
             
-            logger.info(f"Multiple joints controlled smoothly: {list(joint_positions.keys())}")
+            logger.info(f"Multiple joints controlled smoothly: {list(joint_positions_dict.keys())}")
             if clamp_warnings:
                 logger.info(f"Clamp warnings: {clamp_warnings}")
         else:
