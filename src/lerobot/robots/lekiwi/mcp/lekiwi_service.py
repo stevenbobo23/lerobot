@@ -426,7 +426,7 @@ def create_default_service(robot_id: str = "my_awesome_kiwi") -> LeKiwiService:
     # 直接创建摄像头配置
     cameras_config = {
         "front": OpenCVCameraConfig(
-            index_or_path="/dev/video0", 
+            index_or_path="/dev/video1", 
             fps=30, 
             width=640, 
             height=480, 

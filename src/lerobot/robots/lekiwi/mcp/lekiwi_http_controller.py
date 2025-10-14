@@ -128,13 +128,23 @@ def setup_routes():
                         try:
                             frame = service.robot.cameras[camera].async_read(timeout_ms=100)
                             if frame is not None and frame.size > 0:
+                                # 压缩策略1: 降低分辨率 (缩小至原来的70%)
+                                height, width = frame.shape[:2]
+                                new_width = int(width * 0.7)
+                                new_height = int(height * 0.7)
+                                frame_resized = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
+                                
                                 # 将BGR转换为RGB（OpenCV默认BGR，浏览器需要RGB）
-                                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                                # 编码为JPEG
-                                ret, jpeg = cv2.imencode('.jpg', frame_rgb, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                                frame_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
+                                
+                                # 压缩策略2: 降低JPEG质量 (从85降到60)
+                                ret, jpeg = cv2.imencode('.jpg', frame_rgb, [cv2.IMWRITE_JPEG_QUALITY, 60])
                                 if ret:
                                     yield (b'--frame\r\n'
                                            b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
+                                
+                                # 压缩策略3: 降低帧率 (增加等待时间，降低到约15fps)
+                                time.sleep(0.066)
                             else:
                                 # 如果没有有效帧，等待一下
                                 time.sleep(0.05)
