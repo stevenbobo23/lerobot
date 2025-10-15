@@ -92,27 +92,26 @@ if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     exit 1
 fi
 
-# 在后台启动 LeKiwi MCP 管道服务
-echo "Starting LeKiwi MCP pipe service in background..."
-./start_lekiwi_mcp.sh > /home/bobo/logs/lekiwi_mcp_pipe.log 2>&1 &
-
-# 保存 LeKiwi MCP 管道服务的进程 ID
-LEKIWI_MCP_PID=$!
-
-echo "LeKiwi MCP pipe service started with PID: $LEKIWI_MCP_PID"
-
-# 更新退出信号处理，清理所有后台进程
-trap "echo 'Stopping services...'; kill $MCP_PID $LEKIWI_MCP_PID 2>/dev/null; exit" EXIT INT TERM
-
-echo "Both MCP services are now running:"
-echo "  - HTTP Server: PID $MCP_PID"
-echo "  - LeKiwi MCP Pipe: PID $LEKIWI_MCP_PID"
-echo ""
-
-# 进入 Tuya MCP SDK 目录并运行快速启动示例
+# 运行 Tuya MCP SDK 快速启动示例
 echo "Running Tuya MCP SDK quick start example..."
 cd /home/bobo/tuya-mcp-sdk
 python mcp-python/examples/quick_start.py
+
+# 返回项目根目录
+cd "$SCRIPT_DIR"
+
+# 等待 quick_start.py 运行完成后再继续
+echo "Waiting for quick_start.py to complete..."
+
+# 导出环境变量
+export MCP_ENDPOINT="wss://api.xiaozhi.me/mcp/?token=eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEzNTM4MSwiYWdlbnRJZCI6Njg4NzYyLCJlbmRwb2ludElkIjoiYWdlbnRfNjg4NzYyIiwicHVycG9zZSI6Im1jcC1lbmRwb2ludCIsImlhdCI6MTc2MDI0OTEzNSwiZXhwIjoxNzkxODA2NzM1fQ.CbO0We-fo_qO5DmlP3ugu6G2jehfP_fAzTxoLUngp0htPyWQUbNF9WebLfhZNzAwX_IUiSLb0MkC-hgoF78c3w"
+
+echo "MCP_ENDPOINT exported: $MCP_ENDPOINT"
+
+# 启动 MCP 管道服务
+echo "Starting MCP pipe service..."
+cd src/lerobot/robots/lekiwi/mcp/
+python lekiwi_mcp_pipe.py
 
 # wait 命令会等待所有后台进程结束
 wait
