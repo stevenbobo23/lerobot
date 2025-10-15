@@ -130,6 +130,3 @@ echo "All services started successfully!"
 echo "MCP Server PID: $MCP_PID"
 echo "Tuya Quick Start PID: $TUYYA_PID"
 echo "MCP Pipe Service PID: $PIPE_PID"
-
-# 等待所有后台进程结束
-wait
