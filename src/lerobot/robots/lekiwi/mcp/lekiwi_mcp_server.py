@@ -288,12 +288,13 @@ def rotate_robot(direction: str, angle: float = 45.0) -> dict:
             "error": f"旋转角度必须大于0，当前值: {angle}"
         }
     
+    # 旋转速度（度/秒）
+    angular_speed = 20
     
     # 计算旋转所需时间
-    duration = angle / 20
+    duration = angle / angular_speed
     
-    logger.info(f"Rotation calculation: angle={angle}°, duration={duration:.2f}s")
-    
+    logger.info(f"Rotation calculation: angle={angle}°, angular_speed={angular_speed}°/s, duration={duration:.2f}s")
     
     # 执行旋转
     result = service.move_robot_for_duration(direction, duration)
@@ -301,6 +302,7 @@ def rotate_robot(direction: str, angle: float = 45.0) -> dict:
     if result["success"]:
         result["rotation_angle"] = angle
         result["rotation_direction"] = direction
+        result["angular_speed"] = angular_speed
         result["message"] = f"机器人已向{direction}旋转{angle}度（耗时{duration:.2f}秒，速度{angular_speed}度/秒）"
         logger.info(f"Robot rotation completed: {direction} {angle}° in {duration:.2f}s")
     
