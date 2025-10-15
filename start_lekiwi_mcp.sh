@@ -15,10 +15,6 @@ if [ ! -f "src/lerobot/robots/lekiwi/mcp/lekiwi_mcp_pipe.py" ]; then
     exit 1
 fi
 
-if [ ! -f "src/lerobot/robots/lekiwi/mcp/lekiwi_mcp_server.py" ]; then
-    echo "错误: 找不到lekiwi_mcp_server.py文件"
-    exit 1
-fi
 
 # 检查Python环境
 if ! command -v python &> /dev/null; then
@@ -62,4 +58,4 @@ echo "按 Ctrl+C 停止服务"
 echo ""
 
 # 启动MCP管道服务
-python lekiwi_mcp_pipe.py lekiwi_mcp_server.py "$@"
+python lekiwi_mcp_pipe.py 
