@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "lerobot-controller": {
-      "type": "stdio",
-      "command": "python",
-      "args": ["lekiwi_mcp_server.py"]
+    "lerobot-remote-controller": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp",
+      "disabled": false
     },
     "remote-sse-server": {
       "type": "sse",
