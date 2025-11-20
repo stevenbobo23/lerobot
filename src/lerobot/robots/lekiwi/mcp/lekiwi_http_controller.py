@@ -18,6 +18,8 @@ import logging
 import time
 import sys
 import os
+import threading
+import uuid
 
 # 添加项目根目录到路径
 if __name__ == "__main__":
@@ -26,7 +28,7 @@ if __name__ == "__main__":
     sys.path.insert(0, project_root)
 
 import cv2
-from flask import Flask, jsonify, request, render_template, Response
+from flask import Flask, jsonify, request, render_template, Response, make_response
 
 # 条件导入，支持直接运行和模块导入两种方式
 try:
@@ -39,6 +41,10 @@ except ImportError:
 app = None
 service = None
 logger = None
+SESSION_COOKIE_NAME = "lekiwi_user_id"
+SESSION_TIMEOUT_SECONDS = 60
+_active_user = {"id": None, "timestamp": 0.0}
+_active_user_lock = threading.Lock()
 
 
 def setup_routes():
@@ -47,8 +53,93 @@ def setup_routes():
     
     @app.route('/')
     def index():
-        """主页面 - 提供简单的控制界面"""
-        return render_template('index.html')
+        """主页面 - 提供简单的控制界面，仅允许一个活跃用户"""
+        user_id = request.cookies.get(SESSION_COOKIE_NAME)
+        now = time.time()
+
+        with _active_user_lock:
+            active_id = _active_user["id"]
+            active_ts = _active_user["timestamp"]
+            is_active = active_id is not None and (now - active_ts) < SESSION_TIMEOUT_SECONDS
+
+            if is_active and user_id != active_id:
+                lockout_html = """
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8" />
+    <title>LeKiwi 控制占用中</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top, #f8fbff 0%, #eef3fb 35%, #dfe7f3 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1f2a44;
+        }
+        .card {
+            text-align: center;
+            background: #ffffffdd;
+            padding: 32px 40px;
+            border-radius: 18px;
+            box-shadow: 0 18px 45px rgba(25, 60, 125, 0.18);
+            max-width: 420px;
+        }
+        .emoji {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        h2 {
+            margin: 0 0 12px 0;
+            font-size: 22px;
+        }
+        p {
+            margin: 0;
+            color: #4a5675;
+            line-height: 1.6;
+        }
+        .highlight {
+            display: inline-block;
+            margin: 8px 0 0;
+            padding: 6px 14px;
+            border-radius: 999px;
+            background: #ffe8bf;
+            color: #a05a00;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="emoji">🛠️</div>
+        <h2>当前有用户正在操作机械臂小车</h2>
+        <p>请稍候片刻后再试</p>
+        <div class="highlight">约 1 分钟</div>
+    </div>
+</body>
+</html>
+                """.strip()
+                return lockout_html, 429, {"Content-Type": "text/html; charset=utf-8"}
+
+            if not is_active:
+                user_id = user_id or str(uuid.uuid4())
+                _active_user["id"] = user_id
+
+            _active_user["timestamp"] = now
+
+        response = make_response(render_template('index.html'))
+        response.set_cookie(
+            SESSION_COOKIE_NAME,
+            user_id,
+            max_age=SESSION_TIMEOUT_SECONDS,
+            httponly=True,
+            samesite='Lax'
+        )
+        return response
 
     @app.route('/status', methods=['GET'])
     def get_status():

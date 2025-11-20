@@ -20,13 +20,7 @@ function updateStatus() {
 }
 
 function sendCommand(command) {
-    const durationInput = document.getElementById('durationInput');
-    const duration = parseFloat(durationInput.value) || 0;
-    
     const requestBody = {command: command};
-    if (duration > 0) {
-        requestBody.duration = duration;
-    }
     
     fetch('/control', {
         method: 'POST',
@@ -39,12 +33,7 @@ function sendCommand(command) {
     .then(data => {
         console.log('命令执行结果:', data);
         if (data.success) {
-            if (duration > 0) {
-                console.log(`机器人将${command}移动${duration}秒`);
-                showNotification(`机器人${command}移动${duration}秒`, 'success');
-            } else {
-                showNotification(`机器人开始${command}`, 'success');
-            }
+            showNotification(`机器人执行 ${command}`, 'success');
         } else {
             alert('命令执行失败: ' + data.message);
             showNotification('命令执行失败: ' + data.message, 'error');

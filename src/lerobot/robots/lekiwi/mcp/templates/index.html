@@ -19,21 +19,14 @@
                 <!-- 左上：移动控制 -->
                 <div class="move-control-section">
                     <h3>移动控制</h3>
-                    <div style="margin-bottom: 10px;">
-                        <label for="durationInput" style="display: block; margin-bottom: 3px; font-weight: bold; font-size: 12px;">移动持续时间 (秒):</label>
-                        <input type="number" id="durationInput" min="0" max="10" step="0.1" value="0" 
-                               style="width: 100%; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
-                        <small style="color: #666; display: block; margin-top: 2px; font-size: 10px;">设置为0则持续移动直到手动停止</small>
-                    </div>
-                    
                     <div class="control-grid">
-                        <button class="control-button forward" onmousedown="sendCommand('forward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('forward')" ontouchend="sendCommand('stop')">前进 ↑</button>
-                        <button class="control-button left" onmousedown="sendCommand('left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('left')" ontouchend="sendCommand('stop')">左转 ←</button>
-                        <button class="control-button stop" onclick="sendCommand('stop')">停止 ⏹</button>
-                        <button class="control-button right" onmousedown="sendCommand('right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('right')" ontouchend="sendCommand('stop')">右转 →</button>
-                        <button class="control-button backward" onmousedown="sendCommand('backward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('backward')" ontouchend="sendCommand('stop')">后退 ↓</button>
-                        <button class="control-button rotate-left" onmousedown="sendCommand('rotate_left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_left')" ontouchend="sendCommand('stop')">左旋转 ↺</button>
-                        <button class="control-button rotate-right" onmousedown="sendCommand('rotate_right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_right')" ontouchend="sendCommand('stop')">右旋转 ↻</button>
+                        <button class="control-button forward" onmousedown="sendCommand('forward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('forward')" ontouchend="sendCommand('stop')">前进 ↑ (W)</button>
+                        <button class="control-button left" onmousedown="sendCommand('left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('left')" ontouchend="sendCommand('stop')">左转 ← (A)</button>
+                        <button class="control-button stop" onclick="sendCommand('stop')">停止 ⏹ (Space)</button>
+                        <button class="control-button right" onmousedown="sendCommand('right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('right')" ontouchend="sendCommand('stop')">右转 → (D)</button>
+                        <button class="control-button backward" onmousedown="sendCommand('backward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('backward')" ontouchend="sendCommand('stop')">后退 ↓ (S)</button>
+                        <button class="control-button rotate-left" onmousedown="sendCommand('rotate_left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_left')" ontouchend="sendCommand('stop')">左旋转 ↺ (Q)</button>
+                        <button class="control-button rotate-right" onmousedown="sendCommand('rotate_right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_right')" ontouchend="sendCommand('stop')">右旋转 ↻ (E)</button>
                     </div>
                 </div>
                 
