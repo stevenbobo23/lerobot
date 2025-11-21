@@ -111,12 +111,13 @@ def start_streaming():
             
             # 构建 ffmpeg 命令
             # 使用 rawvideo 输入，从 stdin 读取帧数据
+            # 注意：需要将 BGR 转换为 RGB，所以使用 rgb24 格式
             ffmpeg_cmd = [
                 'ffmpeg',
                 '-f', 'rawvideo',
                 '-vcodec', 'rawvideo',
                 '-s', f'{width}x{height}',
-                '-pix_fmt', 'bgr24',
+                '-pix_fmt', 'rgb24',  # 使用 RGB 格式
                 '-r', '15',  # 帧率 15fps
                 '-i', '-',  # 从 stdin 读取
                 '-c:v', 'libx264',
@@ -164,9 +165,12 @@ def start_streaming():
                         if w != width or h != height:
                             frame = cv2.resize(frame, (width, height))
                         
+                        # 将 BGR 转换为 RGB（OpenCV 默认 BGR，ffmpeg 需要 RGB）
+                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        
                         # 写入 ffmpeg stdin
                         try:
-                            _stream_process.stdin.write(frame.tobytes())
+                            _stream_process.stdin.write(frame_rgb.tobytes())
                             _stream_process.stdin.flush()
                             frame_count += 1
                             
