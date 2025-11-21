@@ -32,9 +32,7 @@ function sendCommand(command) {
     .then(response => response.json())
     .then(data => {
         console.log('命令执行结果:', data);
-        if (data.success) {
-            showNotification(`机器人执行 ${command}`, 'success');
-        } else {
+        if (!data.success) {
             alert('命令执行失败: ' + data.message);
             showNotification('命令执行失败: ' + data.message, 'error');
         }
