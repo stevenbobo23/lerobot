@@ -207,6 +207,8 @@ document.addEventListener('keydown', (e) => {
         'd': 'right',
         'q': 'rotate_left',
         'e': 'rotate_right',
+        'h': 'rotate_left',  // H 键也控制左旋转
+        'j': 'rotate_right', // J 键也控制右旋转
         ' ': 'stop'
     };
     
@@ -229,7 +231,9 @@ document.addEventListener('keyup', (e) => {
         'a': 'left',
         'd': 'right',
         'q': 'rotate_left',
-        'e': 'rotate_right'
+        'e': 'rotate_right',
+        'h': 'rotate_left',  // H 键也控制左旋转
+        'j': 'rotate_right'  // J 键也控制右旋转
     };
     
     if (keyMap[key]) {

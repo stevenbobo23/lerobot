@@ -303,6 +303,41 @@ def setup_routes():
         )
         return response
 
+    @app.route('/wait', methods=['GET'])
+    def wait():
+        """等待页面 - 显示排队信息"""
+        username = request.cookies.get(USERNAME_COOKIE_NAME)
+        if not username:
+            return redirect(url_for('login'))
+        
+        user_id = request.cookies.get(SESSION_COOKIE_NAME)
+        now = time.time()
+        
+        with _active_user_lock:
+            active_id = _active_user["id"]
+            active_start = _active_user["start_time"]
+            has_active = active_id is not None and active_start > 0
+            elapsed = now - active_start if has_active else 0
+            is_active = has_active and elapsed < SESSION_TIMEOUT_SECONDS
+            current_owner = _active_user.get("username")
+            
+            # 如果用户不在等待列表中，添加到等待列表
+            if is_active and user_id != active_id:
+                if username and username not in _waiting_users:
+                    _waiting_users.append(username)
+            
+            waiting_view = [u for u in _waiting_users if u != current_owner]
+            remaining_seconds = max(0, int(SESSION_TIMEOUT_SECONDS - elapsed)) if is_active else 0
+        
+        return render_template(
+            "waiting.html",
+            current_owner=current_owner if is_active else None,
+            waiting_users=waiting_view,
+            requesting_user=username,
+            remaining_seconds=remaining_seconds,
+            session_timeout=SESSION_TIMEOUT_SECONDS,
+        )
+    
     @app.route('/login', methods=['GET', 'POST'])
     def login():
         """登录页面，要求输入用户名"""
