@@ -76,14 +76,20 @@
                 </h3>
                 
                 <div class="grid grid-cols-3 gap-2 max-w-[260px] mx-auto">
-                    <button class="h-14 bg-gray-800 rounded hover:bg-gray-700 active:bg-tech-600 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-gray-400"
-                            onmousedown="sendCommand('rotate_left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_left')" ontouchend="sendCommand('stop')">↺</button>
+                    <button class="h-14 bg-gray-800 rounded hover:bg-gray-700 active:bg-tech-600 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex flex-col items-center justify-center text-gray-400"
+                            onmousedown="sendCommand('rotate_left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_left')" ontouchend="sendCommand('stop')">
+                        <span class="text-lg">↺</span>
+                        <span class="text-[10px] font-mono">Q</span>
+                    </button>
                     
                     <button class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold shadow-lg shadow-tech-900/20"
                             onmousedown="sendCommand('forward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('forward')" ontouchend="sendCommand('stop')">W</button>
                     
-                    <button class="h-14 bg-gray-800 rounded hover:bg-gray-700 active:bg-tech-600 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-gray-400"
-                            onmousedown="sendCommand('rotate_right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_right')" ontouchend="sendCommand('stop')">↻</button>
+                    <button class="h-14 bg-gray-800 rounded hover:bg-gray-700 active:bg-tech-600 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex flex-col items-center justify-center text-gray-400"
+                            onmousedown="sendCommand('rotate_right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_right')" ontouchend="sendCommand('stop')">
+                        <span class="text-lg">↻</span>
+                        <span class="text-[10px] font-mono">E</span>
+                    </button>
                     
                     <button class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold"
                             onmousedown="sendCommand('left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('left')" ontouchend="sendCommand('stop')">A</button>
@@ -117,29 +123,29 @@
                     <div class="space-y-4">
                         <div class="group">
                             <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">肩部水平</span><span id="shoulder-pan-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
-                            <input type="range" id="shoulder-pan" min="-100" max="100" value="0" step="1" data-joint="arm_shoulder_pan.pos">
+                            <input type="range" id="shoulder-pan" class="arm-slider" min="-100" max="100" value="0" step="1" data-joint="arm_shoulder_pan.pos">
                         </div>
                         <div class="group">
                             <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">肩部垂直</span><span id="shoulder-lift-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
-                            <input type="range" id="shoulder-lift" min="-100" max="100" value="0" step="1" data-joint="arm_shoulder_lift.pos">
+                            <input type="range" id="shoulder-lift" class="arm-slider" min="-100" max="100" value="0" step="1" data-joint="arm_shoulder_lift.pos">
                         </div>
                         <div class="group">
                             <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">肘关节</span><span id="elbow-flex-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
-                            <input type="range" id="elbow-flex" min="-100" max="100" value="0" step="1" data-joint="arm_elbow_flex.pos">
+                            <input type="range" id="elbow-flex" class="arm-slider" min="-100" max="100" value="0" step="1" data-joint="arm_elbow_flex.pos">
                         </div>
                     </div>
                     <div class="space-y-4">
                         <div class="group">
                             <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">腕关节弯曲</span><span id="wrist-flex-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
-                            <input type="range" id="wrist-flex" min="-100" max="100" value="0" step="1" data-joint="arm_wrist_flex.pos">
+                            <input type="range" id="wrist-flex" class="arm-slider" min="-100" max="100" value="0" step="1" data-joint="arm_wrist_flex.pos">
                         </div>
                         <div class="group">
                             <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">腕关节旋转</span><span id="wrist-roll-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
-                            <input type="range" id="wrist-roll" min="-100" max="100" value="0" step="1" data-joint="arm_wrist_roll.pos">
+                            <input type="range" id="wrist-roll" class="arm-slider" min="-100" max="100" value="0" step="1" data-joint="arm_wrist_roll.pos">
                         </div>
                         <div class="group">
                             <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">夹爪</span><span id="gripper-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
-                            <input type="range" id="gripper" min="0" max="100" value="0" step="1" data-joint="arm_gripper.pos">
+                            <input type="range" id="gripper" class="arm-slider" min="0" max="100" value="0" step="1" data-joint="arm_gripper.pos">
                         </div>
                     </div>
                 </div>
@@ -180,6 +186,19 @@
 
         </section>
     </main>
+
+    <!-- 倒计时提示（最后10秒显示，不遮挡操作） -->
+    <div id="countdown-overlay" class="hidden fixed top-20 right-6 z-50 pointer-events-none">
+        <div class="bg-red-600/90 backdrop-blur-sm border-2 border-red-400 rounded-xl p-6 shadow-2xl shadow-red-500/50">
+            <div class="text-center">
+                <div class="text-xs text-red-200 mb-2 font-semibold uppercase tracking-wider">剩余时间</div>
+                <div id="countdown-number" class="text-6xl font-bold text-white mb-2 drop-shadow-[0_0_20px_rgba(255,255,255,0.5)] animate-pulse">
+                    10
+                </div>
+                <div class="text-sm text-red-100">控制时间即将结束</div>
+            </div>
+        </div>
+    </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

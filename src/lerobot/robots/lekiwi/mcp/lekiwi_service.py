@@ -39,7 +39,7 @@ class LeKiwiServiceConfig:
     # 机械臂舵机速度配置 (0.0-1.0，相对于最大速度的百分比)
     arm_servo_speed: float = 0.2  # 舵机速度，降低到20%
     # 安全配置
-    command_timeout_s: float = 3.0  # 命令超时时间，增加到3秒以适应定时移动
+    command_timeout_s: float = 6.0  # 命令超时时间，增加到6秒（原3秒的2倍）
     max_loop_freq_hz: int = 30  # 主循环频率
 
 
@@ -457,7 +457,7 @@ def create_default_service(robot_id: str = "my_awesome_kiwi") -> LeKiwiService:
         linear_speed=0.2,
         angular_speed=30.0,
         arm_servo_speed=0.2,  # 舵机速度设置为20%
-        command_timeout_s=3,
+        command_timeout_s=6,  # 增加到6秒（原3秒的2倍）
         max_loop_freq_hz=30
     )
     return LeKiwiService(service_config)

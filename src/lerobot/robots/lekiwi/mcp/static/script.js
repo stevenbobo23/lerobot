@@ -87,6 +87,22 @@ function formatDuration(seconds) {
     return `${mins}:${secs}`;
 }
 
+function showCountdownOverlay(seconds) {
+    const overlay = document.getElementById('countdown-overlay');
+    const numberEl = document.getElementById('countdown-number');
+    if (overlay && numberEl) {
+        numberEl.textContent = seconds;
+        overlay.classList.remove('hidden');
+    }
+}
+
+function hideCountdownOverlay() {
+    const overlay = document.getElementById('countdown-overlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+    }
+}
+
 function stopSessionCountdown() {
     const timerEl = document.getElementById('session-timer');
     const valueEl = document.getElementById('session-remaining');
@@ -98,6 +114,7 @@ function stopSessionCountdown() {
         timerEl.style.display = 'none';
         valueEl.textContent = '--';
     }
+    hideCountdownOverlay();
 }
 
 function startSessionCountdown(seconds) {
@@ -112,18 +129,45 @@ function startSessionCountdown(seconds) {
     let remaining = Math.max(0, Math.floor(seconds));
     if (remaining <= 0) {
         stopSessionCountdown();
+        hideCountdownOverlay();
+        // 如果剩余时间为0，立即跳转
+        showNotification('控制时间已到，正在跳转...', 'error');
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 3000);
         return;
     }
 
     timerEl.style.display = 'block';
     valueEl.textContent = formatDuration(remaining);
+    
+    // 如果剩余时间已经在10秒以内，立即显示提示
+    if (remaining <= 10) {
+        showCountdownOverlay(remaining);
+    } else {
+        hideCountdownOverlay();
+    }
 
     sessionCountdownInterval = setInterval(() => {
         remaining -= 1;
         if (remaining <= 0) {
             stopSessionCountdown();
+            // 隐藏倒计时提示
+            hideCountdownOverlay();
+            // 倒计时结束，显示提示并跳转到等待页面
+            showNotification('控制时间已到，正在跳转...', 'error');
+            setTimeout(() => {
+                // 刷新页面，后端会检查会话状态并自动跳转到等待页面
+                window.location.href = '/';
+            }, 3000);
         } else {
             valueEl.textContent = formatDuration(remaining);
+            // 最后10秒显示全屏倒计时提示
+            if (remaining <= 10) {
+                showCountdownOverlay(remaining);
+            } else {
+                hideCountdownOverlay();
+            }
         }
     }, 1000);
 }
@@ -136,6 +180,14 @@ function updateSessionInfo() {
                 startSessionCountdown(data.remaining_seconds);
             } else {
                 stopSessionCountdown();
+                // 如果不再是活跃用户或时间已到，跳转到等待页面
+                if (data.remaining_seconds <= 0 || !data.is_active_user) {
+                    hideCountdownOverlay();
+                    showNotification('控制时间已到，正在跳转...', 'error');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 3000);
+                }
             }
         })
         .catch(error => {
@@ -327,6 +379,12 @@ function getCurrentArmPosition() {
 // 初始化机械臂滑块事件监听
 function initArmSliders() {
     const sliders = document.querySelectorAll('.arm-slider');
+    console.log(`找到 ${sliders.length} 个机械臂滑块`);
+    
+    if (sliders.length === 0) {
+        console.warn('未找到机械臂滑块，请检查 HTML 中的 class="arm-slider"');
+        return;
+    }
     
     sliders.forEach(slider => {
         // 更新显示值
@@ -341,15 +399,17 @@ function initArmSliders() {
             const value = parseFloat(this.value);
             const joint = this.getAttribute('data-joint');
             
+            console.log(`滑块 ${this.id} 值改变: ${value}, 关节: ${joint}`);
+            
             if (joint) {
-                const position = {};
-                position[joint] = value;
-                
                 // 更新当前位置
                 currentArmPosition[joint] = value;
                 
                 // 发送完整的机械臂位置（保持其他关节不变）
+                console.log('发送机械臂位置:', currentArmPosition);
                 sendArmPosition(currentArmPosition);
+            } else {
+                console.warn(`滑块 ${this.id} 缺少 data-joint 属性`);
             }
         });
         
