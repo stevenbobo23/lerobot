@@ -20,6 +20,8 @@ import sys
 import os
 import threading
 import uuid
+import subprocess
+import queue
 
 # 添加项目根目录到路径
 if __name__ == "__main__":
@@ -28,7 +30,7 @@ if __name__ == "__main__":
     sys.path.insert(0, project_root)
 
 import cv2
-from flask import Flask, jsonify, request, render_template, Response, make_response
+from flask import Flask, jsonify, request, render_template, Response, make_response, redirect, url_for
 
 # 条件导入，支持直接运行和模块导入两种方式
 try:
@@ -42,9 +44,197 @@ app = None
 service = None
 logger = None
 SESSION_COOKIE_NAME = "lekiwi_user_id"
+USERNAME_COOKIE_NAME = "lekiwi_username"
 SESSION_TIMEOUT_SECONDS = 60
-_active_user = {"id": None, "timestamp": 0.0}
+_active_user = {"id": None, "start_time": 0.0, "username": None}
+_waiting_users = []
 _active_user_lock = threading.Lock()
+
+# 推流配置
+STREAM_URL = "webrtc://210004.push.tlivecloud.com/live/lerobot?txSecret=54c4483bc0c1b433913f2b4cbcddd0c7&txTime=69209EE5"
+_stream_process = None
+_stream_thread = None
+_stream_running = False
+_stream_lock = threading.Lock()
+
+
+def convert_webrtc_to_rtmp(webrtc_url):
+    """将 WebRTC URL 转换为 RTMP URL"""
+    # 将 webrtc:// 替换为 rtmp://
+    if webrtc_url.startswith("webrtc://"):
+        return webrtc_url.replace("webrtc://", "rtmp://", 1)
+    return webrtc_url
+
+
+def start_streaming():
+    """启动视频推流"""
+    global _stream_process, _stream_thread, _stream_running, service, logger
+    
+    with _stream_lock:
+        if _stream_running:
+            logger.info("推流已在运行中")
+            return
+        
+        if not service or not service.robot.is_connected:
+            logger.warning("机器人未连接，无法启动推流")
+            return
+        
+        if 'front' not in service.robot.cameras:
+            logger.warning("前置摄像头不可用，无法启动推流")
+            return
+        
+        _stream_running = True
+    
+    def stream_worker():
+        """推流工作线程"""
+        global _stream_process, _stream_running, service, logger
+        
+        try:
+            # 将 WebRTC URL 转换为 RTMP
+            rtmp_url = convert_webrtc_to_rtmp(STREAM_URL)
+            logger.info(f"开始推流到: {rtmp_url}")
+            
+            # 获取摄像头分辨率
+            camera = service.robot.cameras['front']
+            # 尝试读取一帧以获取分辨率
+            test_frame = None
+            try:
+                test_frame = camera.async_read(timeout_ms=1000)
+            except:
+                pass
+            
+            if test_frame is None:
+                # 使用默认分辨率
+                width, height = 640, 480
+            else:
+                height, width = test_frame.shape[:2]
+            
+            # 构建 ffmpeg 命令
+            # 使用 rawvideo 输入，从 stdin 读取帧数据
+            ffmpeg_cmd = [
+                'ffmpeg',
+                '-f', 'rawvideo',
+                '-vcodec', 'rawvideo',
+                '-s', f'{width}x{height}',
+                '-pix_fmt', 'bgr24',
+                '-r', '15',  # 帧率 15fps
+                '-i', '-',  # 从 stdin 读取
+                '-c:v', 'libx264',
+                '-preset', 'ultrafast',
+                '-tune', 'zerolatency',
+                '-b:v', '800k',  # 比特率
+                '-maxrate', '1000k',
+                '-bufsize', '1200k',
+                '-g', '30',  # GOP 大小
+                '-f', 'flv',
+                rtmp_url
+            ]
+            
+            logger.info(f"启动 ffmpeg 推流进程")
+            logger.debug(f"ffmpeg 命令: {' '.join(ffmpeg_cmd)}")
+            
+            _stream_process = subprocess.Popen(
+                ffmpeg_cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=0
+            )
+            
+            # 启动一个线程来读取 stderr，以便捕获错误信息
+            def read_stderr():
+                if _stream_process and _stream_process.stderr:
+                    for line in iter(_stream_process.stderr.readline, b''):
+                        if line:
+                            logger.debug(f"ffmpeg: {line.decode('utf-8', errors='ignore').strip()}")
+            
+            stderr_thread = threading.Thread(target=read_stderr, daemon=True)
+            stderr_thread.start()
+            
+            frame_count = 0
+            last_log_time = time.time()
+            
+            while _stream_running and service and service.robot.is_connected:
+                try:
+                    # 读取摄像头帧
+                    frame = camera.async_read(timeout_ms=100)
+                    if frame is not None and frame.size > 0:
+                        # 确保帧尺寸匹配
+                        h, w = frame.shape[:2]
+                        if w != width or h != height:
+                            frame = cv2.resize(frame, (width, height))
+                        
+                        # 写入 ffmpeg stdin
+                        try:
+                            _stream_process.stdin.write(frame.tobytes())
+                            _stream_process.stdin.flush()
+                            frame_count += 1
+                            
+                            # 每10秒记录一次日志
+                            if time.time() - last_log_time > 10:
+                                logger.info(f"推流中... 已推送 {frame_count} 帧")
+                                last_log_time = time.time()
+                        except BrokenPipeError:
+                            logger.error("ffmpeg 进程已断开")
+                            break
+                        except Exception as e:
+                            logger.error(f"写入帧数据失败: {e}")
+                            break
+                    else:
+                        time.sleep(0.01)
+                except Exception as e:
+                    logger.error(f"读取摄像头帧失败: {e}")
+                    time.sleep(0.1)
+            
+        except Exception as e:
+            logger.error(f"推流线程错误: {e}")
+        finally:
+            # 清理资源
+            if _stream_process:
+                try:
+                    _stream_process.stdin.close()
+                    _stream_process.terminate()
+                    _stream_process.wait(timeout=5)
+                except:
+                    try:
+                        _stream_process.kill()
+                    except:
+                        pass
+                _stream_process = None
+            
+            with _stream_lock:
+                _stream_running = False
+            
+            logger.info("推流已停止")
+    
+    _stream_thread = threading.Thread(target=stream_worker, daemon=True)
+    _stream_thread.start()
+    logger.info("推流线程已启动")
+
+
+def stop_streaming():
+    """停止视频推流"""
+    global _stream_process, _stream_running, logger
+    
+    with _stream_lock:
+        if not _stream_running:
+            return
+        
+        _stream_running = False
+    
+    logger.info("正在停止推流...")
+    
+    if _stream_process:
+        try:
+            _stream_process.stdin.close()
+            _stream_process.terminate()
+            _stream_process.wait(timeout=5)
+        except:
+            try:
+                _stream_process.kill()
+            except:
+                pass
+        _stream_process = None
 
 
 def setup_routes():
@@ -54,84 +244,52 @@ def setup_routes():
     @app.route('/')
     def index():
         """主页面 - 提供简单的控制界面，仅允许一个活跃用户"""
+        username = request.cookies.get(USERNAME_COOKIE_NAME)
+        if not username:
+            return redirect(url_for('login'))
+
         user_id = request.cookies.get(SESSION_COOKIE_NAME)
         now = time.time()
 
         with _active_user_lock:
             active_id = _active_user["id"]
-            active_ts = _active_user["timestamp"]
-            is_active = active_id is not None and (now - active_ts) < SESSION_TIMEOUT_SECONDS
+            active_start = _active_user["start_time"]
+            has_active = active_id is not None and active_start > 0
+            elapsed = now - active_start if has_active else 0
+            is_active = has_active and elapsed < SESSION_TIMEOUT_SECONDS
+            current_owner = _active_user.get("username")
 
             if is_active and user_id != active_id:
-                lockout_html = """
-<!DOCTYPE html>
-<html lang="zh">
-<head>
-    <meta charset="utf-8" />
-    <title>LeKiwi 控制占用中</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: radial-gradient(circle at top, #f8fbff 0%, #eef3fb 35%, #dfe7f3 100%);
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #1f2a44;
-        }
-        .card {
-            text-align: center;
-            background: #ffffffdd;
-            padding: 32px 40px;
-            border-radius: 18px;
-            box-shadow: 0 18px 45px rgba(25, 60, 125, 0.18);
-            max-width: 420px;
-        }
-        .emoji {
-            font-size: 48px;
-            margin-bottom: 12px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            font-size: 22px;
-        }
-        p {
-            margin: 0;
-            color: #4a5675;
-            line-height: 1.6;
-        }
-        .highlight {
-            display: inline-block;
-            margin: 8px 0 0;
-            padding: 6px 14px;
-            border-radius: 999px;
-            background: #ffe8bf;
-            color: #a05a00;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <div class="emoji">🛠️</div>
-        <h2>当前有用户正在操作机械臂小车</h2>
-        <p>请稍候片刻后再试</p>
-        <div class="highlight">约 1 分钟</div>
-    </div>
-</body>
-</html>
-                """.strip()
-                return lockout_html, 429, {"Content-Type": "text/html; charset=utf-8"}
+                if username and username not in _waiting_users:
+                    _waiting_users.append(username)
+                waiting_view = [u for u in _waiting_users if u != current_owner]
+                remaining_seconds = max(0, int(SESSION_TIMEOUT_SECONDS - elapsed))
+                return (
+                    render_template(
+                        "waiting.html",
+                        current_owner=current_owner,
+                        waiting_users=waiting_view,
+                        requesting_user=username,
+                        remaining_seconds=remaining_seconds,
+                        session_timeout=SESSION_TIMEOUT_SECONDS,
+                    ),
+                    429,
+                    {"Content-Type": "text/html; charset=utf-8"},
+                )
 
             if not is_active:
                 user_id = user_id or str(uuid.uuid4())
                 _active_user["id"] = user_id
+                _active_user["username"] = username
+                _active_user["start_time"] = now
+                if username in _waiting_users:
+                    _waiting_users.remove(username)
+            elif user_id == _active_user["id"]:
+                _active_user["username"] = username
+                if username in _waiting_users:
+                    _waiting_users.remove(username)
 
-            _active_user["timestamp"] = now
-
-        response = make_response(render_template('index.html'))
+        response = make_response(render_template('index.html', username=username))
         response.set_cookie(
             SESSION_COOKIE_NAME,
             user_id,
@@ -140,6 +298,53 @@ def setup_routes():
             samesite='Lax'
         )
         return response
+
+    @app.route('/login', methods=['GET', 'POST'])
+    def login():
+        """登录页面，要求输入用户名"""
+        error = None
+        if request.method == 'POST':
+            username = (request.form.get('username') or '').strip()
+            if not username:
+                error = "用户名不能为空"
+            else:
+                resp = make_response(redirect(url_for('index')))
+                resp.set_cookie(
+                    USERNAME_COOKIE_NAME,
+                    username,
+                    max_age=24 * 3600,
+                    httponly=False,
+                    samesite='Lax'
+                )
+                return resp
+
+        return render_template('login.html', error=error)
+
+    @app.route('/session_info', methods=['GET'])
+    def session_info():
+        """获取当前会话占用信息"""
+        user_id = request.cookies.get(SESSION_COOKIE_NAME)
+        now = time.time()
+
+        with _active_user_lock:
+            active_id = _active_user["id"]
+            active_start = _active_user["start_time"]
+            active_username = _active_user.get("username")
+            waiting_view = [u for u in _waiting_users if u != active_username]
+
+            has_active = active_id is not None and active_start > 0
+            elapsed = now - active_start if has_active else 0
+            is_active = has_active and elapsed < SESSION_TIMEOUT_SECONDS
+            remaining = SESSION_TIMEOUT_SECONDS - elapsed if is_active else 0
+            is_current_user = is_active and user_id == active_id
+
+        return jsonify({
+            "is_active_user": bool(is_current_user),
+            "remaining_seconds": max(0, int(remaining if is_current_user else 0)),
+            "current_owner": active_username if is_active else None,
+            "session_timeout": SESSION_TIMEOUT_SECONDS,
+            "waiting_users": waiting_view,
+        })
 
     @app.route('/status', methods=['GET'])
     def get_status():
@@ -251,6 +456,47 @@ def setup_routes():
         
         return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
     
+    @app.route('/stream/start', methods=['POST'])
+    def start_stream():
+        """手动启动推流"""
+        try:
+            start_streaming()
+            return jsonify({
+                "success": True,
+                "message": "推流已启动"
+            })
+        except Exception as e:
+            logger.error(f"启动推流失败: {e}")
+            return jsonify({
+                "success": False,
+                "message": str(e)
+            }), 500
+    
+    @app.route('/stream/stop', methods=['POST'])
+    def stop_stream():
+        """手动停止推流"""
+        try:
+            stop_streaming()
+            return jsonify({
+                "success": True,
+                "message": "推流已停止"
+            })
+        except Exception as e:
+            logger.error(f"停止推流失败: {e}")
+            return jsonify({
+                "success": False,
+                "message": str(e)
+            }), 500
+    
+    @app.route('/stream/status', methods=['GET'])
+    def stream_status():
+        """获取推流状态"""
+        return jsonify({
+            "streaming": _stream_running,
+            "url": STREAM_URL,
+            "camera_available": service.robot.is_connected and 'front' in service.robot.cameras if service else False
+        })
+    
     @app.route('/cameras')
     def get_cameras():
         """获取可用的摄像头列表"""
@@ -330,6 +576,12 @@ def run_server(host="0.0.0.0", port=8080, robot_id="my_awesome_kiwi"):
     # 启动时自动连接机器人
     if service.connect():
         logger.info("✓ 机器人连接成功")
+        # 延迟启动推流，确保摄像头已初始化
+        def delayed_start_stream():
+            time.sleep(2)  # 等待2秒让摄像头初始化
+            if service.robot.is_connected:
+                start_streaming()
+        threading.Thread(target=delayed_start_stream, daemon=True).start()
     else:
         logger.warning("⚠️ 机器人连接失败，将以离线模式启动HTTP服务")
     
@@ -351,6 +603,7 @@ def run_server(host="0.0.0.0", port=8080, robot_id="my_awesome_kiwi"):
 def cleanup():
     """清理资源"""
     global service
+    stop_streaming()
     if service:
         service.disconnect()
 

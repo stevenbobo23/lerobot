@@ -77,6 +77,72 @@ function showNotification(message, type) {
     }, 3000);
 }
 
+// 会话倒计时
+let sessionCountdownInterval = null;
+
+function formatDuration(seconds) {
+    const total = Math.max(0, Math.floor(seconds));
+    const mins = String(Math.floor(total / 60)).padStart(2, '0');
+    const secs = String(total % 60).padStart(2, '0');
+    return `${mins}:${secs}`;
+}
+
+function stopSessionCountdown() {
+    const timerEl = document.getElementById('session-timer');
+    const valueEl = document.getElementById('session-remaining');
+    if (sessionCountdownInterval) {
+        clearInterval(sessionCountdownInterval);
+        sessionCountdownInterval = null;
+    }
+    if (timerEl && valueEl) {
+        timerEl.style.display = 'none';
+        valueEl.textContent = '--';
+    }
+}
+
+function startSessionCountdown(seconds) {
+    const timerEl = document.getElementById('session-timer');
+    const valueEl = document.getElementById('session-remaining');
+    if (!timerEl || !valueEl) return;
+
+    if (sessionCountdownInterval) {
+        clearInterval(sessionCountdownInterval);
+    }
+
+    let remaining = Math.max(0, Math.floor(seconds));
+    if (remaining <= 0) {
+        stopSessionCountdown();
+        return;
+    }
+
+    timerEl.style.display = 'block';
+    valueEl.textContent = formatDuration(remaining);
+
+    sessionCountdownInterval = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+            stopSessionCountdown();
+        } else {
+            valueEl.textContent = formatDuration(remaining);
+        }
+    }, 1000);
+}
+
+function updateSessionInfo() {
+    fetch('/session_info')
+        .then(response => response.json())
+        .then(data => {
+            if (data.is_active_user && data.remaining_seconds > 0) {
+                startSessionCountdown(data.remaining_seconds);
+            } else {
+                stopSessionCountdown();
+            }
+        })
+        .catch(error => {
+            console.debug('获取会话信息失败:', error);
+        });
+}
+
 // 键盘控制支持 - 记录按下的按键
 const pressedKeys = new Set();
 
@@ -447,4 +513,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 定期检查摄像头状态（5秒一次）
     setInterval(checkCameraStatus, 5000);
+    updateSessionInfo();
+    setInterval(updateSessionInfo, 5000);
 });

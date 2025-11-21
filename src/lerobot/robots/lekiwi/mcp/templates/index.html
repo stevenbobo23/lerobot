@@ -1,152 +1,185 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN" class="dark">
 <head>
-    <title>LeKiwi HTTP Controller</title>
+    <title>LeKiwi Mission Control</title>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gray: { 850: '#1f2937', 900: '#111827', 950: '#030712' }, // 更深的背景
+                        tech: { 400: '#38bdf8', 500: '#0ea5e9', 600: '#0284c7', 900: '#0c4a6e' }, // 科技蓝
+                    },
+                    fontFamily: {
+                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 极简滑块样式 */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 14px; width: 14px; border-radius: 2px;
+            background: #38bdf8; cursor: pointer; margin-top: -5px;
+            box-shadow: 0 0 5px rgba(56, 189, 248, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer; background: #374151; border-radius: 2px;
+        }
+        /* 禁止文本被选中，提升按钮连点体验 */
+        body { user-select: none; -webkit-user-select: none; }
+    </style>
 </head>
-<body>
-    <div class="container">
-        <h1>LeKiwi 遥控小车</h1>
+<body class="bg-gray-950 text-gray-300 h-screen w-screen overflow-hidden flex flex-col font-sans">
+
+    <header class="h-14 flex-none bg-gray-900 border-b border-gray-800 flex items-center justify-between px-6 z-20 shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="w-2 h-8 bg-tech-500 rounded-sm shadow-[0_0_8px_rgba(14,165,233,0.6)]"></div>
+            <div>
+                <h1 class="text-lg font-bold text-white tracking-wider leading-tight">LEKIWI <span class="text-tech-500">CONTROL</span></h1>
+                <div class="text-[10px] text-gray-500 font-mono uppercase tracking-[0.2em]">Remote Operative System</div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-2 text-xs font-mono text-gray-300 bg-gray-950/50 px-3 py-1.5 rounded border border-gray-800">
+                <span class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e]"></span>
+                <span class="text-tech-400 font-semibold">{{ username or '未知用户' }}</span>
+            </div>
+            
+            <div id="status" class="flex items-center gap-2 text-xs font-mono text-gray-400 bg-gray-950/50 px-3 py-1.5 rounded border border-gray-800">
+                <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                STATUS: CHECKING...
+            </div>
+            
+            <div id="session-timer" class="hidden flex items-center gap-2 border-l border-gray-700 pl-4">
+                <span class="text-[10px] text-gray-500 uppercase">Time Rem:</span>
+                <span id="session-remaining" class="text-tech-400 font-mono font-bold text-lg">--:--</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
         
-        <div id="status" class="status disconnected">状态: 检查中...</div>
-        
-        <!-- 双栏布局 -->
-        <div class="main-layout">
-            <!-- 左侧面板 -->
-            <div class="left-panel">
-                <!-- 左上：移动控制 -->
-                <div class="move-control-section">
-                    <h3>移动控制</h3>
-                    <div class="control-grid">
-                        <button class="control-button forward" onmousedown="sendCommand('forward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('forward')" ontouchend="sendCommand('stop')">前进 ↑ (W)</button>
-                        <button class="control-button left" onmousedown="sendCommand('left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('left')" ontouchend="sendCommand('stop')">左转 ← (A)</button>
-                        <button class="control-button stop" onclick="sendCommand('stop')">停止 ⏹ (Space)</button>
-                        <button class="control-button right" onmousedown="sendCommand('right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('right')" ontouchend="sendCommand('stop')">右转 → (D)</button>
-                        <button class="control-button backward" onmousedown="sendCommand('backward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('backward')" ontouchend="sendCommand('stop')">后退 ↓ (S)</button>
-                        <button class="control-button rotate-left" onmousedown="sendCommand('rotate_left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_left')" ontouchend="sendCommand('stop')">左旋转 ↺ (Q)</button>
-                        <button class="control-button rotate-right" onmousedown="sendCommand('rotate_right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_right')" ontouchend="sendCommand('stop')">右旋转 ↻ (E)</button>
+        <aside class="lg:w-[420px] flex-none flex flex-col border-r border-gray-800 bg-gray-900/50 backdrop-blur relative z-10">
+            
+            <div class="flex-none p-5 border-b border-gray-800/50">
+                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                    Mobility Unit
+                </h3>
+                
+                <div class="grid grid-cols-3 gap-2 max-w-[260px] mx-auto">
+                    <button class="h-14 bg-gray-800 rounded hover:bg-gray-700 active:bg-tech-600 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-gray-400"
+                            onmousedown="sendCommand('rotate_left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_left')" ontouchend="sendCommand('stop')">↺</button>
+                    
+                    <button class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold shadow-lg shadow-tech-900/20"
+                            onmousedown="sendCommand('forward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('forward')" ontouchend="sendCommand('stop')">W</button>
+                    
+                    <button class="h-14 bg-gray-800 rounded hover:bg-gray-700 active:bg-tech-600 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-gray-400"
+                            onmousedown="sendCommand('rotate_right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_right')" ontouchend="sendCommand('stop')">↻</button>
+                    
+                    <button class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold"
+                            onmousedown="sendCommand('left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('left')" ontouchend="sendCommand('stop')">A</button>
+                    
+                    <button class="h-14 bg-red-900/30 text-red-400 border-red-900/50 border border-b-2 rounded active:bg-red-600 active:text-white active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center"
+                            onclick="sendCommand('stop')">STOP</button>
+                    
+                    <button class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold"
+                            onmousedown="sendCommand('right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('right')" ontouchend="sendCommand('stop')">D</button>
+                    
+                    <div class="opacity-0"></div>
+                    <button class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold"
+                            onmousedown="sendCommand('backward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('backward')" ontouchend="sendCommand('stop')">S</button>
+                    <div class="opacity-0"></div>
+                </div>
+            </div>
+
+            <div class="flex-1 p-5 flex flex-col min-h-0 overflow-y-auto scrollbar-hide">
+                <div class="flex justify-between items-end mb-4">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        Manipulator
+                    </h3>
+                    <div class="flex gap-1">
+                        <button onclick="resetArmToHome()" class="px-2 py-1 text-[10px] bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-gray-300 transition-colors">RESET</button>
+                        <button onclick="getCurrentArmPosition()" class="px-2 py-1 text-[10px] bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-tech-400 transition-colors">SYNC</button>
                     </div>
                 </div>
+
+                <div class="grid grid-cols-2 gap-x-4 gap-y-5">
+                    <div class="space-y-4">
+                        <div class="group">
+                            <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">SHOULDER PAN</span><span id="shoulder-pan-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
+                            <input type="range" id="shoulder-pan" min="-100" max="100" value="0" step="1" data-joint="arm_shoulder_pan.pos">
+                        </div>
+                        <div class="group">
+                            <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">SHOULDER LIFT</span><span id="shoulder-lift-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
+                            <input type="range" id="shoulder-lift" min="-100" max="100" value="0" step="1" data-joint="arm_shoulder_lift.pos">
+                        </div>
+                        <div class="group">
+                            <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">ELBOW FLEX</span><span id="elbow-flex-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
+                            <input type="range" id="elbow-flex" min="-100" max="100" value="0" step="1" data-joint="arm_elbow_flex.pos">
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="group">
+                            <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">WRIST FLEX</span><span id="wrist-flex-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
+                            <input type="range" id="wrist-flex" min="-100" max="100" value="0" step="1" data-joint="arm_wrist_flex.pos">
+                        </div>
+                        <div class="group">
+                            <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">WRIST ROLL</span><span id="wrist-roll-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
+                            <input type="range" id="wrist-roll" min="-100" max="100" value="0" step="1" data-joint="arm_wrist_roll.pos">
+                        </div>
+                        <div class="group">
+                            <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">GRIPPER</span><span id="gripper-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
+                            <input type="range" id="gripper" min="0" max="100" value="0" step="1" data-joint="arm_gripper.pos">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+        <section class="flex-1 flex flex-col bg-black relative">
+            
+            <div class="h-1/2 relative border-b border-gray-800 group overflow-hidden">
+                <img id="front-camera" src="{{ url_for('video_feed', camera='front') }}" class="w-full h-full object-contain bg-gray-950" onerror="this.style.display='none'" />
                 
-                <!-- 左下：机械臂控制 -->
-                <div class="arm-control-section">
-                    <h3>机械臂控制</h3>
-                    <div class="slider-grid">
-                        <!-- 左列：前3个关节 -->
-                        <div class="slider-column">
-                            <div class="slider-item">
-                                <label for="shoulder-pan">肩膏水平 (Pan)</label>
-                                <input type="range" id="shoulder-pan" class="arm-slider" 
-                                       min="-100" max="100" value="0" step="1"
-                                       data-joint="arm_shoulder_pan.pos">
-                                <span class="slider-value" id="shoulder-pan-value">0</span>
-                            </div>
-                            
-                            <div class="slider-item">
-                                <label for="shoulder-lift">肩膏垂直 (Lift)</label>
-                                <input type="range" id="shoulder-lift" class="arm-slider" 
-                                       min="-100" max="100" value="0" step="1"
-                                       data-joint="arm_shoulder_lift.pos">
-                                <span class="slider-value" id="shoulder-lift-value">0</span>
-                            </div>
-                            
-                            <div class="slider-item">
-                                <label for="elbow-flex">肘关节 (Elbow)</label>
-                                <input type="range" id="elbow-flex" class="arm-slider" 
-                                       min="-100" max="100" value="0" step="1"
-                                       data-joint="arm_elbow_flex.pos">
-                                <span class="slider-value" id="elbow-flex-value">0</span>
-                            </div>
-                        </div>
-                        
-                        <!-- 右列：后3个关节 -->
-                        <div class="slider-column">
-                            <div class="slider-item">
-                                <label for="wrist-flex">腕关节弯曲 (Wrist Flex)</label>
-                                <input type="range" id="wrist-flex" class="arm-slider" 
-                                       min="-100" max="100" value="0" step="1"
-                                       data-joint="arm_wrist_flex.pos">
-                                <span class="slider-value" id="wrist-flex-value">0</span>
-                            </div>
-                            
-                            <div class="slider-item">
-                                <label for="wrist-roll">腕关节旋转 (Wrist Roll)</label>
-                                <input type="range" id="wrist-roll" class="arm-slider" 
-                                       min="-100" max="100" value="0" step="1"
-                                       data-joint="arm_wrist_roll.pos">
-                                <span class="slider-value" id="wrist-roll-value">0</span>
-                            </div>
-                            
-                            <div class="slider-item">
-                                <label for="gripper">夹爪 (Gripper)</label>
-                                <input type="range" id="gripper" class="arm-slider" 
-                                       min="0" max="100" value="0" step="1"
-                                       data-joint="arm_gripper.pos">
-                                <span class="slider-value" id="gripper-value">0</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="arm-buttons">
-                        <button class="arm-button" onclick="resetArmToHome()">复位到初始位置</button>
-                        <button class="arm-button" onclick="getCurrentArmPosition()">获取当前位置</button>
-                    </div>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none -z-10">
+                    <span class="text-xs text-gray-700 font-mono">NO SIGNAL - FRONT</span>
+                </div>
+
+                <div class="absolute top-3 left-3 flex items-center gap-2 bg-black/40 backdrop-blur px-2 py-1 rounded border border-white/10">
+                    <div class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></div>
+                    <span class="text-[10px] font-bold text-white tracking-wide">FRONT OPTICAL</span>
+                </div>
+                <div class="absolute inset-0 opacity-20 pointer-events-none border border-white/5 m-4">
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 border-l border-t border-white/50"></div>
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 border-r border-b border-white/50"></div>
                 </div>
             </div>
             
-            <!-- 右侧面板 -->
-            <div class="right-panel">
-                <!-- 右上：前置摄像头 -->
-                <div class="camera-section front-camera-section">
-                    <h3>前置摄像头</h3>
-                    <div class="camera-item">
-                        <img id="front-camera" src="{{ url_for('video_feed', camera='front') }}" alt="前置摄像头" />
-                    </div>
-                </div>
+            <div class="h-1/2 relative group overflow-hidden">
+                <img id="wrist-camera" src="{{ url_for('video_feed', camera='wrist') }}" class="w-full h-full object-contain bg-gray-950" onerror="this.style.display='none'" />
                 
-                <!-- 右下：手臂摄像头 -->
-                <div class="camera-section arm-camera-section">
-                    <h3>手臂摄像头</h3>
-                    <div class="camera-item">
-                        <img id="wrist-camera" src="{{ url_for('video_feed', camera='wrist') }}" alt="手腕摄像头" />
-                    </div>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none -z-10">
+                    <span class="text-xs text-gray-700 font-mono">NO SIGNAL - WRIST</span>
+                </div>
+
+                <div class="absolute top-3 left-3 flex items-center gap-2 bg-black/40 backdrop-blur px-2 py-1 rounded border border-white/10">
+                    <div class="w-1.5 h-1.5 rounded-full bg-tech-500 shadow-[0_0_5px_#0ea5e9]"></div>
+                    <span class="text-[10px] font-bold text-white tracking-wide">WRIST OPTICAL</span>
                 </div>
             </div>
-        </div>
-        
-        <div class="api-info">
-            <h3>API接口说明</h3>
-            <p><strong>GET /status</strong> - 获取机器人状态</p>
-            <p><strong>POST /control</strong> - 控制机器人移动和机械臂</p>
-            <pre>
-移动控制示例:
-{
-    "command": "forward",  // 可选值: forward, backward, left, right, rotate_left, rotate_right, stop
-    "duration": 2.5       // 可选: 移动持续时间(秒)，默认为0(持续移动)
-}
 
-自定义速度控制:
-{
-    "x_vel": 0.2,     // 前后速度 (m/s)
-    "y_vel": 0.0,     // 左右速度 (m/s) 
-    "theta_vel": 0.0, // 旋转速度 (deg/s)
-    "duration": 1.0   // 可选: 移动持续时间(秒)
-}
-
-机械臂位置控制:
-{
-    "arm_shoulder_pan.pos": 45,    // 肩膏水平旋转 (-100到100)
-    "arm_shoulder_lift.pos": -30,  // 肩膏垂直旋转 (-100到100)
-    "arm_elbow_flex.pos": 60,      // 肘关节 (-100到100)
-    "arm_wrist_flex.pos": 20,      // 腕关节弯曲 (-100到100)
-    "arm_wrist_roll.pos": 0,       // 腕关节旋转 (-100到100)
-    "arm_gripper.pos": 50          // 夹爪 (0到100)
-}
-            </pre>
-        </div>
-    </div>
+        </section>
+    </main>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
