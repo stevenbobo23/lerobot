@@ -163,19 +163,19 @@
             </div>
             
             <!-- 贪食蛇小游戏 -->
-            <div class="mt-6 bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div class="mt-6 bg-white border border-gray-300 rounded-xl p-4">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                    <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
                         <span class="text-lg">🐍</span>
                         等待时练手速，摸鱼更专业
                     </h3>
-                    <div class="flex items-center gap-4 text-xs text-gray-500">
-                        <span>得分: <span id="snake-score" class="text-tech-400 font-bold">0</span></span>
-                        <button id="snake-restart" class="px-3 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-gray-300 transition-colors">重新开始</button>
+                    <div class="flex items-center gap-4 text-xs text-gray-700">
+                        <span>得分: <span id="snake-score" class="text-blue-600 font-bold">0</span></span>
+                        <button id="snake-restart" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 border border-gray-300 rounded text-gray-800 transition-colors">重新开始</button>
                     </div>
                 </div>
                 <div class="flex justify-center">
-                    <canvas id="snake-game" width="400" height="400" class="bg-gray-950 border border-gray-800 rounded-lg"></canvas>
+                    <canvas id="snake-game" width="400" height="400" class="bg-white border border-gray-300 rounded-lg"></canvas>
                 </div>
                 <div class="mt-3 text-center text-xs text-gray-600">
                     使用方向键或 WASD 控制
@@ -262,7 +262,7 @@
         }
         
         function clearCanvas() {
-            ctx.fillStyle = '#030712';
+            ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
         

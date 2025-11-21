@@ -131,9 +131,9 @@ function startSessionCountdown(seconds) {
         stopSessionCountdown();
         hideCountdownOverlay();
         // 如果剩余时间为0，立即跳转
-        showNotification('控制时间已到，正在跳转...', 'error');
+        showNotification('控制时间已到，正在前往排队页...', 'error');
         setTimeout(() => {
-            window.location.href = '/';
+            window.location.href = '/wait';
         }, 3000);
         return;
     }
@@ -155,10 +155,9 @@ function startSessionCountdown(seconds) {
             // 隐藏倒计时提示
             hideCountdownOverlay();
             // 倒计时结束，显示提示并跳转到等待页面
-            showNotification('控制时间已到，正在跳转...', 'error');
+            showNotification('控制时间已到，正在前往排队页...', 'error');
             setTimeout(() => {
-                // 刷新页面，后端会检查会话状态并自动跳转到等待页面
-                window.location.href = '/';
+                window.location.href = '/wait';
             }, 3000);
         } else {
             valueEl.textContent = formatDuration(remaining);
@@ -183,9 +182,9 @@ function updateSessionInfo() {
                 // 如果不再是活跃用户或时间已到，跳转到等待页面
                 if (data.remaining_seconds <= 0 || !data.is_active_user) {
                     hideCountdownOverlay();
-                    showNotification('控制时间已到，正在跳转...', 'error');
+                    showNotification('控制时间已到，正在前往排队页...', 'error');
                     setTimeout(() => {
-                        window.location.href = '/';
+                        window.location.href = '/wait';
                     }, 3000);
                 }
             }
