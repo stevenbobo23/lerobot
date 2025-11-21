@@ -51,6 +51,7 @@ _waiting_users = []
 _active_user_lock = threading.Lock()
 
 # 推流配置
+STREAMING_ENABLED = False  # 暂时关闭推流逻辑
 STREAM_URL = "webrtc://210004.push.tlivecloud.com/live/lerobot?txSecret=54c4483bc0c1b433913f2b4cbcddd0c7&txTime=69209EE5"
 _stream_process = None
 _stream_thread = None
@@ -69,6 +70,11 @@ def convert_webrtc_to_rtmp(webrtc_url):
 def start_streaming():
     """启动视频推流"""
     global _stream_process, _stream_thread, _stream_running, service, logger
+    
+    if not STREAMING_ENABLED:
+        if logger:
+            logger.info("推流功能已暂时禁用，跳过启动")
+        return
     
     with _stream_lock:
         if _stream_running:
@@ -219,6 +225,9 @@ def start_streaming():
 def stop_streaming():
     """停止视频推流"""
     global _stream_process, _stream_running, logger
+    
+    if not STREAMING_ENABLED:
+        return
     
     with _stream_lock:
         if not _stream_running:
@@ -498,6 +507,11 @@ def setup_routes():
     @app.route('/stream/start', methods=['POST'])
     def start_stream():
         """手动启动推流"""
+        if not STREAMING_ENABLED:
+            return jsonify({
+                "success": False,
+                "message": "推流功能已暂时关闭"
+            }), 503
         try:
             start_streaming()
             return jsonify({
@@ -514,6 +528,11 @@ def setup_routes():
     @app.route('/stream/stop', methods=['POST'])
     def stop_stream():
         """手动停止推流"""
+        if not STREAMING_ENABLED:
+            return jsonify({
+                "success": False,
+                "message": "推流功能已暂时关闭"
+            }), 503
         try:
             stop_streaming()
             return jsonify({
@@ -531,8 +550,9 @@ def setup_routes():
     def stream_status():
         """获取推流状态"""
         return jsonify({
-            "streaming": _stream_running,
-            "url": STREAM_URL,
+            "streaming": STREAMING_ENABLED and _stream_running,
+            "enabled": STREAMING_ENABLED,
+            "url": STREAM_URL if STREAMING_ENABLED else None,
             "camera_available": service.robot.is_connected and 'front' in service.robot.cameras if service else False
         })
     
@@ -615,12 +635,13 @@ def run_server(host="0.0.0.0", port=8080, robot_id="my_awesome_kiwi"):
     # 启动时自动连接机器人
     if service.connect():
         logger.info("✓ 机器人连接成功")
-        # 延迟启动推流，确保摄像头已初始化
-        def delayed_start_stream():
-            time.sleep(2)  # 等待2秒让摄像头初始化
-            if service.robot.is_connected:
-                start_streaming()
-        threading.Thread(target=delayed_start_stream, daemon=True).start()
+        if STREAMING_ENABLED:
+            # 延迟启动推流，确保摄像头已初始化
+            def delayed_start_stream():
+                time.sleep(2)  # 等待2秒让摄像头初始化
+                if service.robot.is_connected:
+                    start_streaming()
+            threading.Thread(target=delayed_start_stream, daemon=True).start()
     else:
         logger.warning("⚠️ 机器人连接失败，将以离线模式启动HTTP服务")
     
