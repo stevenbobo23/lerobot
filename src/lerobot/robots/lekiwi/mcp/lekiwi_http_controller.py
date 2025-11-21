@@ -52,6 +52,9 @@ _active_user_lock = threading.Lock()
 
 # 推流配置
 STREAM_URL = "webrtc://210004.push.tlivecloud.com/live/lerobot?txSecret=54c4483bc0c1b433913f2b4cbcddd0c7&txTime=69209EE5"
+# 颜色格式配置：'bgr24' 或 'rgb24'
+# 如果颜色不对（如黄色变蓝色），尝试切换这个配置
+STREAM_PIX_FMT = 'rgb24'  # 尝试使用 rgb24，摄像头返回 RGB 格式
 _stream_process = None
 _stream_thread = None
 _stream_running = False
@@ -111,13 +114,13 @@ def start_streaming():
             
             # 构建 ffmpeg 命令
             # 使用 rawvideo 输入，从 stdin 读取帧数据
-            # 注意：需要将 BGR 转换为 RGB，所以使用 rgb24 格式
+            # 根据配置使用不同的像素格式
             ffmpeg_cmd = [
                 'ffmpeg',
                 '-f', 'rawvideo',
                 '-vcodec', 'rawvideo',
                 '-s', f'{width}x{height}',
-                '-pix_fmt', 'rgb24',  # 使用 RGB 格式
+                '-pix_fmt', STREAM_PIX_FMT,  # 使用配置的像素格式
                 '-r', '15',  # 帧率 15fps
                 '-i', '-',  # 从 stdin 读取
                 '-c:v', 'libx264',
@@ -165,12 +168,19 @@ def start_streaming():
                         if w != width or h != height:
                             frame = cv2.resize(frame, (width, height))
                         
-                        # 将 BGR 转换为 RGB（OpenCV 默认 BGR，ffmpeg 需要 RGB）
-                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        # 颜色处理：根据配置的像素格式进行转换
+                        # OpenCV 通常返回 BGR 格式
+                        if STREAM_PIX_FMT == 'rgb24':
+                            # 使用 RGB 格式，需要将 BGR 转换为 RGB
+                            frame_output = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        else:
+                            # 使用 BGR 格式，不转换（假设摄像头返回 BGR）
+                            # 如果颜色还是不对，可能需要反向转换：cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                            frame_output = frame
                         
                         # 写入 ffmpeg stdin
                         try:
-                            _stream_process.stdin.write(frame_rgb.tobytes())
+                            _stream_process.stdin.write(frame_output.tobytes())
                             _stream_process.stdin.flush()
                             frame_count += 1
                             
