@@ -333,6 +333,16 @@ function getCurrentArmPosition() {
         .then(data => {
             if (data.success && data.current_action) {
                 const action = data.current_action;
+
+                // 更新本地状态变量（修复手势控制状态同步问题）
+                if (typeof currentArmPosition !== 'undefined') {
+                    currentArmPosition['arm_shoulder_pan.pos'] = Math.round(action['arm_shoulder_pan.pos'] || 0);
+                    currentArmPosition['arm_shoulder_lift.pos'] = Math.round(action['arm_shoulder_lift.pos'] || 0);
+                    currentArmPosition['arm_elbow_flex.pos'] = Math.round(action['arm_elbow_flex.pos'] || 0);
+                    currentArmPosition['arm_wrist_flex.pos'] = Math.round(action['arm_wrist_flex.pos'] || 0);
+                    currentArmPosition['arm_wrist_roll.pos'] = Math.round(action['arm_wrist_roll.pos'] || 0);
+                    currentArmPosition['arm_gripper.pos'] = Math.round(action['arm_gripper.pos'] || 0);
+                }
                 
                 // 更新滑块和显示值
                 if (action['arm_shoulder_pan.pos'] !== undefined) {

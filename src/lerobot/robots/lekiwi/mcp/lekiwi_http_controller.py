@@ -714,8 +714,19 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n收到键盘中断，正在关闭服务...")
     except Exception as e:
-        print(f"\n启动失败: {e}")
+        error_msg = str(e)
+        print(f"\n启动失败: {error_msg}")
         print("\n故障排除建议:")
+        
+        # 检查是否是缺少依赖的问题
+        if "scservo_sdk" in error_msg or "No module named" in error_msg:
+            print("⚠️  缺少必需的依赖包！")
+            print("   请运行以下命令安装 LeKiwi 所需的依赖：")
+            print("   pip install 'lerobot[lekiwi]'")
+            print("   或者：")
+            print("   pip install 'lerobot[feetech]'")
+            print("")
+        
         print("1. 确保已激活 lerobot 环境")
         print("2. 检查机器人硬件连接")
         print("3. 确认端口未被占用")

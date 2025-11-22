@@ -5,6 +5,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MediaPipe Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -113,9 +118,12 @@
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                         机械臂
                     </h3>
-                    <div class="flex gap-1">
+                    <div class="flex gap-2 items-center">
                         <button onclick="resetArmToHome()" class="px-2 py-1 text-[10px] bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-gray-300 transition-colors">复位</button>
                         <button onclick="getCurrentArmPosition()" class="px-2 py-1 text-[10px] bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-tech-400 transition-colors">同步</button>
+                        <button id="gesture-toggle-btn" onclick="toggleGestureControl()" class="ml-2 px-3 py-1 text-[10px] font-bold bg-gray-800 hover:bg-gray-700 text-gray-400 border border-gray-700 rounded transition-all flex items-center gap-1 shadow-lg">
+                            <span>✋</span> 手势
+                        </button>
                     </div>
                 </div>
 
@@ -200,6 +208,17 @@
         </div>
     </div>
 
+    <!-- 手势控制预览窗口 -->
+    <div id="gesture-preview-container" class="hidden fixed bottom-6 right-6 z-40 bg-gray-900/90 backdrop-blur border border-gray-700 rounded-lg shadow-2xl overflow-hidden w-80 h-60 min-w-[200px] min-h-[150px]" style="resize: both;">
+        <div id="gesture-drag-handle" class="absolute top-0 left-0 w-full h-8 z-10 flex items-center gap-2 bg-gradient-to-b from-black/80 to-transparent px-3 cursor-move select-none">
+            <div class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
+            <span class="text-[10px] text-white font-mono uppercase tracking-wider shadow-black drop-shadow-md">Live Input</span>
+        </div>
+        <video id="gesture-video" class="hidden w-full h-full object-cover transform -scale-x-100 pointer-events-none"></video>
+        <canvas id="gesture-canvas" width="320" height="240" class="w-full h-full object-cover transform -scale-x-100 pointer-events-none"></canvas>
+    </div>
+
+    <script src="{{ url_for('static', filename='gesture_control.js') }}"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
