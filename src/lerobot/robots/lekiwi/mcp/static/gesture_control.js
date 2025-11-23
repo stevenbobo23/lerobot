@@ -44,6 +44,14 @@ async function initGestureControl() {
         return;
     }
 
+    // Chrome 兼容：确保视频元素有必要的属性
+    videoElement.setAttribute('autoplay', '');
+    videoElement.setAttribute('playsinline', '');
+    videoElement.setAttribute('muted', '');
+    videoElement.autoplay = true;
+    videoElement.playsInline = true;
+    videoElement.muted = true;
+
     hands = new Hands({locateFile: (file) => {
         return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
     }});
@@ -71,10 +79,11 @@ async function initGestureControl() {
     });
 }
 
-function toggleGestureControl() {
+async function toggleGestureControl() {
     gestureControlEnabled = !gestureControlEnabled;
     const btn = document.getElementById('gesture-toggle-btn');
     const previewContainer = document.getElementById('gesture-preview-container');
+    const videoElement = document.getElementById('gesture-video');
     
     if (gestureControlEnabled) {
         // 先执行复位
@@ -83,7 +92,7 @@ function toggleGestureControl() {
         }
         
         // 等待复位完成后再开启手势控制
-        setTimeout(() => {
+        setTimeout(async () => {
             // 尝试同步当前位置
             if (typeof getCurrentArmPosition === 'function') {
                 getCurrentArmPosition();
@@ -94,17 +103,76 @@ function toggleGestureControl() {
             btn.classList.remove('bg-gray-800', 'text-gray-400', 'border-gray-700');
             btn.innerHTML = '<span>✋</span> 正在控制';
             
+            // Chrome 兼容：先显示容器和视频元素（Chrome 需要元素可见才能访问摄像头）
             previewContainer.classList.remove('hidden');
-            
-            if (!camera) {
-                initGestureControl().then(() => {
-                    camera.start();
-                });
-            } else {
-                camera.start();
+            if (videoElement) {
+                // 临时显示视频元素，确保 Chrome 可以检测到
+                videoElement.classList.remove('hidden');
+                // 确保必要的属性已设置
+                videoElement.setAttribute('autoplay', '');
+                videoElement.setAttribute('playsinline', '');
+                videoElement.setAttribute('muted', '');
             }
             
-            showNotification('手势控制已开启', 'success');
+            try {
+                if (!camera) {
+                    await initGestureControl();
+                }
+                
+                // 启动摄像头
+                await camera.start();
+                
+                // 等待视频流开始（Chrome 需要）
+                await new Promise((resolve, reject) => {
+                    if (!videoElement) {
+                        resolve();
+                        return;
+                    }
+                    
+                    const timeout = setTimeout(() => {
+                        reject(new Error('摄像头启动超时'));
+                    }, 5000);
+                    
+                    const onLoadedMetadata = () => {
+                        clearTimeout(timeout);
+                        console.log("视频流已加载，分辨率:", videoElement.videoWidth, 'x', videoElement.videoHeight);
+                        // 延迟隐藏视频元素，确保 Chrome 已经获取到流
+                        setTimeout(() => {
+                            if (videoElement && videoElement.readyState >= 2) {
+                                videoElement.classList.add('hidden');
+                            }
+                        }, 300);
+                        resolve();
+                    };
+                    
+                    const onError = (e) => {
+                        clearTimeout(timeout);
+                        console.error("视频加载错误:", e);
+                        reject(new Error('摄像头访问失败，请检查权限设置'));
+                    };
+                    
+                    if (videoElement.readyState >= 2) {
+                        // 已经加载完成
+                        onLoadedMetadata();
+                    } else {
+                        videoElement.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+                        videoElement.addEventListener('error', onError, { once: true });
+                    }
+                });
+                
+                showNotification('手势控制已开启', 'success');
+            } catch (error) {
+                console.error("启动手势控制失败:", error);
+                showNotification('启动失败: ' + error.message, 'error');
+                gestureControlEnabled = false;
+                btn.classList.remove('bg-green-600', 'text-white', 'border-green-500');
+                btn.classList.add('bg-gray-800', 'text-gray-400', 'border-gray-700');
+                btn.innerHTML = '<span>✋</span> 手势';
+                previewContainer.classList.add('hidden');
+                if (videoElement) {
+                    videoElement.classList.add('hidden');
+                }
+            }
         }, 500); // 等待500ms让复位命令发送完成
     } else {
         console.log("关闭手势控制");
@@ -114,9 +182,24 @@ function toggleGestureControl() {
         
         previewContainer.classList.add('hidden');
         
-        // 停止发送指令，但不一定停止摄像头，以便快速重新开启
-        // 如果想省电/隐私，可以 camera.stop()
-        // camera.stop(); 
+        // Chrome 兼容：停止摄像头以释放资源
+        if (camera) {
+            try {
+                camera.stop();
+            } catch (e) {
+                console.warn("停止摄像头时出错:", e);
+            }
+        }
+        
+        if (videoElement) {
+            videoElement.classList.add('hidden');
+            // 停止视频流
+            if (videoElement.srcObject) {
+                const tracks = videoElement.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+                videoElement.srcObject = null;
+            }
+        }
     }
 }
 
