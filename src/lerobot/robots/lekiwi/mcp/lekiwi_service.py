@@ -15,9 +15,13 @@
 # limitations under the License.
 
 import logging
+import os
+import platform
+import re
 import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, Any, Optional
 
 import numpy as np
@@ -418,26 +422,138 @@ def set_global_service(service: LeKiwiService):
         _global_service = service
 
 
+def find_camera_by_name(camera_name: str) -> Optional[str]:
+    """根据设备名称查找摄像头设备路径
+    
+    通过读取 /sys/class/video4linux/ 目录下的设备信息文件来获取设备名称，
+    无需依赖命令行工具。
+    
+    Args:
+        camera_name: 摄像头设备名称，例如 "USB Camera" 或 "T1 Webcam"
+        
+    Returns:
+        设备路径，例如 "/dev/video3"，如果未找到则返回 None
+    """
+    if platform.system() != "Linux":
+        # 非 Linux 系统暂不支持按名称查找
+        return None
+    
+    logger = logging.getLogger(__name__)
+    sys_video_path = Path("/sys/class/video4linux")
+    
+    if not sys_video_path.exists():
+        logger.warning("/sys/class/video4linux 目录不存在")
+        return None
+    
+    try:
+        # 遍历所有 video 设备
+        device_map = {}  # 存储设备名称到路径的映射
+        
+        for video_dir in sorted(sys_video_path.glob("video*")):
+            # 读取设备名称
+            name_file = video_dir / "name"
+            if not name_file.exists():
+                continue
+            
+            try:
+                with open(name_file, 'r') as f:
+                    device_name = f.read().strip()
+                
+                if not device_name:
+                    continue
+                
+                # 从目录名提取设备编号（例如 video3 -> 3）
+                video_num = video_dir.name.replace("video", "")
+                if not video_num.isdigit():
+                    continue
+                
+                device_path = f"/dev/video{video_num}"
+                
+                # 验证设备文件是否存在
+                if not Path(device_path).exists():
+                    continue
+                
+                # 将设备名称和路径添加到映射中
+                if device_name not in device_map:
+                    device_map[device_name] = []
+                device_map[device_name].append(device_path)
+                
+            except (IOError, OSError) as e:
+                logger.debug(f"读取设备 {video_dir.name} 信息失败: {e}")
+                continue
+        
+        # 查找匹配的设备名称
+        for device_name, paths in device_map.items():
+            if camera_name.lower() in device_name.lower():
+                if paths:
+                    # 返回第一个设备路径（通常是主要的）
+                    device_path = paths[0]
+                    logger.info(
+                        f"找到摄像头设备: {device_name} -> {device_path} (可用路径: {paths})"
+                    )
+                    return device_path
+        
+        # 如果没找到，列出所有可用的设备名称以便调试
+        available_names = list(device_map.keys())
+        logger.warning(
+            f"未找到名称为 '{camera_name}' 的摄像头设备。"
+            f"可用设备: {available_names}"
+        )
+        return None
+        
+    except Exception as e:
+        logger.error(f"查找摄像头设备时出错: {e}")
+        return None
+
+
 def create_default_service(robot_id: str = "my_awesome_kiwi") -> LeKiwiService:
-    """创建默认配置的服务实例"""
+    """创建默认配置的服务实例
+    
+    支持通过设备名称或设备路径配置摄像头：
+    - 如果提供的是设备名称（如 "USB Camera" 或 "T1 Webcam"），会自动查找对应的设备路径
+    - 如果提供的是设备路径（如 "/dev/video0"），则直接使用
+    """
     import logging
     logger = logging.getLogger(__name__)
+    
+    # 摄像头配置：支持设备名称或设备路径
+    # 优先尝试通过设备名称查找，如果找不到则使用提供的路径
+    front_camera_name_or_path = "T1 Webcam"  # 前置摄像头名称
+    wrist_camera_name_or_path = "USB Camera"  # 手腕摄像头名称
+    
+    # 查找前置摄像头
+    front_path = find_camera_by_name(front_camera_name_or_path)
+    if front_path is None:
+        # 如果按名称找不到，尝试使用默认路径
+        front_path = "/dev/video0"
+        logger.warning(f"未找到设备名称 '{front_camera_name_or_path}'，使用默认路径: {front_path}")
+    else:
+        logger.info(f"前置摄像头: {front_camera_name_or_path} -> {front_path}")
+    
+    # 查找手腕摄像头
+    wrist_path = find_camera_by_name(wrist_camera_name_or_path)
+    if wrist_path is None:
+        # 如果按名称找不到，尝试使用默认路径
+        wrist_path = "/dev/video3"
+        logger.warning(f"未找到设备名称 '{wrist_camera_name_or_path}'，使用默认路径: {wrist_path}")
+    else:
+        logger.info(f"手腕摄像头: {wrist_camera_name_or_path} -> {wrist_path}")
     
     # 直接创建摄像头配置
     cameras_config = {
         "front": OpenCVCameraConfig(
-            index_or_path="/dev/video0", 
+            index_or_path=front_path, 
             fps=30, 
             width=640, 
             height=480, 
-            rotation=Cv2Rotation.NO_ROTATION  # 前置摄像头旋转180度
+            rotation=Cv2Rotation.NO_ROTATION  # 前置摄像头不旋转
         ),
         "wrist": OpenCVCameraConfig(
-            index_or_path="/dev/video3", 
+            index_or_path=wrist_path, 
             fps=30, 
             width=640, 
             height=480, 
-            rotation=Cv2Rotation.ROTATE_180  # 手腕摄像头顺时针旋转90度（即-90度）
+            rotation=Cv2Rotation.ROTATE_180  # 手腕摄像头旋转180度
         )
     }
     
