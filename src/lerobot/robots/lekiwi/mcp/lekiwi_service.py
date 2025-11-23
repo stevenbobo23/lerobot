@@ -432,15 +432,13 @@ def create_default_service(robot_id: str = "my_awesome_kiwi") -> LeKiwiService:
             height=480, 
             rotation=Cv2Rotation.NO_ROTATION  # 前置摄像头旋转180度
         ),
-        # "wrist": OpenCVCameraConfig(
-        #     index_or_path="/dev/video0", 
-        #     fps=30, 
-        #     width=640, 
-        #     height=480, 
-
-            
-        #     rotation=Cv2Rotation.ROTATE_180  # 手腕摄像头顺时针旋转90度（即-90度）
-        # )
+        "wrist": OpenCVCameraConfig(
+            index_or_path="/dev/video2", 
+            fps=30, 
+            width=640, 
+            height=480, 
+            rotation=Cv2Rotation.ROTATE_180  # 手腕摄像头顺时针旋转90度（即-90度）
+        )
     }
     
     logger.info(f"创建服务，摄像头配置: {list(cameras_config.keys())}")
