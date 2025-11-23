@@ -581,6 +581,14 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('键盘控制: W(前进) S(后退) A(左转) D(右转) Q(左旋转) E(右旋转) 空格(停止)');
     console.log('机械臂控制: 使用滑块调节各关节位置');
     
+    // 页面加载时自动执行复位
+    setTimeout(() => {
+        if (typeof resetArmToHome === 'function') {
+            console.log('页面加载完成，执行机械臂复位...');
+            resetArmToHome();
+        }
+    }, 1000); // 等待1秒，确保机器人连接状态已更新
+    
     // 定期检查摄像头状态（5秒一次）
     setInterval(checkCameraStatus, 5000);
     updateSessionInfo();

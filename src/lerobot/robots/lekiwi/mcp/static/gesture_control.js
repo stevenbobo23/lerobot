@@ -8,17 +8,17 @@ const SEND_INTERVAL = 100; // 发送指令间隔 (ms)
 
 // 机械臂关节范围 (参考 index.html 中的 input 范围)
 const JOINTS = {
-    pan: { min: -100, max: 100 },
-    lift: { min: -100, max: 100 },
-    elbow: { min: -100, max: 100 },
-    wrist_flex: { min: -100, max: 100 },
-    wrist_roll: { min: -100, max: 100 },
-    gripper: { min: 0, max: 100 }
+    pan: { min: -60, max: 60 },
+    lift: { min: -55, max: 55 },
+    elbow: { min: -50, max: 50 },
+    wrist_flex: { min: -70, max: 70 },
+    wrist_roll: { min: -70, max: 70 },
+    gripper: { min: 0, max: 60 }
 };
 
 // 平滑处理
 const SMOOTHING_FACTOR = 0.2;
-const GRIPPER_SMOOTHING_FACTOR = 0.5; // 夹爪使用更大的平滑因子，响应更快
+const GRIPPER_SMOOTHING_FACTOR = 0.8; // 夹爪使用更大的平滑因子，响应更快（加快闭合速度）
 let smoothedPositions = {
     pan: 0,
     lift: 0,
@@ -77,27 +77,35 @@ function toggleGestureControl() {
     const previewContainer = document.getElementById('gesture-preview-container');
     
     if (gestureControlEnabled) {
-        // 尝试同步当前位置
-        if (typeof getCurrentArmPosition === 'function') {
-            getCurrentArmPosition();
+        // 先执行复位
+        if (typeof resetArmToHome === 'function') {
+            resetArmToHome();
         }
         
-        console.log("开启手势控制");
-        btn.classList.add('bg-green-600', 'text-white', 'border-green-500');
-        btn.classList.remove('bg-gray-800', 'text-gray-400', 'border-gray-700');
-        btn.innerHTML = '<span>✋</span> 正在控制';
-        
-        previewContainer.classList.remove('hidden');
-        
-        if (!camera) {
-            initGestureControl().then(() => {
+        // 等待复位完成后再开启手势控制
+        setTimeout(() => {
+            // 尝试同步当前位置
+            if (typeof getCurrentArmPosition === 'function') {
+                getCurrentArmPosition();
+            }
+            
+            console.log("开启手势控制");
+            btn.classList.add('bg-green-600', 'text-white', 'border-green-500');
+            btn.classList.remove('bg-gray-800', 'text-gray-400', 'border-gray-700');
+            btn.innerHTML = '<span>✋</span> 正在控制';
+            
+            previewContainer.classList.remove('hidden');
+            
+            if (!camera) {
+                initGestureControl().then(() => {
+                    camera.start();
+                });
+            } else {
                 camera.start();
-            });
-        } else {
-            camera.start();
-        }
-        
-        showNotification('手势控制已开启', 'success');
+            }
+            
+            showNotification('手势控制已开启', 'success');
+        }, 500); // 等待500ms让复位命令发送完成
     } else {
         console.log("关闭手势控制");
         btn.classList.remove('bg-green-600', 'text-white', 'border-green-500');
@@ -169,9 +177,9 @@ function processGesture(landmarks) {
     
     // 距离大概在 0.02 (闭合) 到 0.2 (张开) 之间
     // 调整映射范围，让响应更敏感，加快夹爪速度
-    // Gripper 0 是闭合，100 是张开
-    let targetGripper = mapRange(distance, 0.03, 0.15, 0, 100);
-    targetGripper = clamp(targetGripper, 0, 100);
+    // Gripper 0 是闭合，60 是张开（新范围）
+    let targetGripper = mapRange(distance, 0.03, 0.15, 0, 60);
+    targetGripper = clamp(targetGripper, 0, 60);
 
     // 平滑处理
     smoothedPositions.pan = lerp(smoothedPositions.pan, targetPan, SMOOTHING_FACTOR);
