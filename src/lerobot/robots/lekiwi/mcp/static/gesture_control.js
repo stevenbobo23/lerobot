@@ -18,6 +18,7 @@ const JOINTS = {
 
 // 平滑处理
 const SMOOTHING_FACTOR = 0.2;
+const GRIPPER_SMOOTHING_FACTOR = 0.5; // 夹爪使用更大的平滑因子，响应更快
 let smoothedPositions = {
     pan: 0,
     lift: 0,
@@ -153,9 +154,9 @@ function processGesture(landmarks) {
     targetPan = clamp(targetPan, JOINTS.pan.min, JOINTS.pan.max);
     
     // 映射 Y 到 Lift (-100 到 100)
-    // 画面上方是 0，下方是 1。手向上移 (Y变小)，机器人应该向上 (Lift 变大?) 
-    // 需要确认 LeKiwi 的方向。假设 Lift 正值是向上。
-    let targetLift = mapRange(handY, 0.8, 0.2, JOINTS.lift.min, JOINTS.lift.max);
+    // 画面上方是 0，下方是 1。手向上移 (Y变小)，机器人应该向上 (Lift 变小，负值)
+    // 手向下移 (Y变大)，机器人应该向下 (Lift 变大，正值)
+    let targetLift = mapRange(handY, 0.2, 0.8, JOINTS.lift.min, JOINTS.lift.max);
     targetLift = clamp(targetLift, JOINTS.lift.min, JOINTS.lift.max);
 
     // 2. 拇指和食指距离控制 Gripper (夹爪)
@@ -167,16 +168,16 @@ function processGesture(landmarks) {
     );
     
     // 距离大概在 0.02 (闭合) 到 0.2 (张开) 之间
-    // Gripper 0 是闭合还是张开？假设 0 是闭合，100 是张开
-    // 如果 0 是张开，100 是闭合，需要反转
-    // 根据 index.html 默认值 0，通常默认是闭合。
-    let targetGripper = mapRange(distance, 0.05, 0.2, 0, 100);
+    // 调整映射范围，让响应更敏感，加快夹爪速度
+    // Gripper 0 是闭合，100 是张开
+    let targetGripper = mapRange(distance, 0.03, 0.15, 0, 100);
     targetGripper = clamp(targetGripper, 0, 100);
 
     // 平滑处理
     smoothedPositions.pan = lerp(smoothedPositions.pan, targetPan, SMOOTHING_FACTOR);
     smoothedPositions.lift = lerp(smoothedPositions.lift, targetLift, SMOOTHING_FACTOR);
-    smoothedPositions.gripper = lerp(smoothedPositions.gripper, targetGripper, SMOOTHING_FACTOR);
+    // 夹爪使用更大的平滑因子，响应更快
+    smoothedPositions.gripper = lerp(smoothedPositions.gripper, targetGripper, GRIPPER_SMOOTHING_FACTOR);
 
     // 构建指令对象
     // 注意：这里只控制了部分关节，其他关节保持当前值或者归零
