@@ -46,7 +46,8 @@ logger = None
 SESSION_COOKIE_NAME = "lekiwi_user_id"
 USERNAME_COOKIE_NAME = "lekiwi_username"
 SESSION_TIMEOUT_SECONDS = 60
-_active_user = {"id": None, "start_time": 0.0, "username": None}
+VIP_SESSION_TIMEOUT_SECONDS = 600  # VIP 用户超时时间：10 分钟
+_active_user = {"id": None, "start_time": 0.0, "username": None, "is_vip": False}
 _waiting_users = []
 _active_user_lock = threading.Lock()
 
@@ -267,16 +268,20 @@ def setup_routes():
         with _active_user_lock:
             active_id = _active_user["id"]
             active_start = _active_user["start_time"]
+            active_is_vip = _active_user.get("is_vip", False)
             has_active = active_id is not None and active_start > 0
+            
+            # 根据是否是 VIP 选择超时时间
+            timeout_seconds = VIP_SESSION_TIMEOUT_SECONDS if active_is_vip else SESSION_TIMEOUT_SECONDS
             elapsed = now - active_start if has_active else 0
-            is_active = has_active and elapsed < SESSION_TIMEOUT_SECONDS
+            is_active = has_active and elapsed < timeout_seconds
             current_owner = _active_user.get("username")
 
             if is_active and user_id != active_id:
                 if username and username not in _waiting_users:
                     _waiting_users.append(username)
                 waiting_view = [u for u in _waiting_users if u != current_owner]
-                remaining_seconds = max(0, int(SESSION_TIMEOUT_SECONDS - elapsed))
+                remaining_seconds = max(0, int(timeout_seconds - elapsed))
                 return (
                     render_template(
                         "waiting.html",
@@ -284,7 +289,7 @@ def setup_routes():
                         waiting_users=waiting_view,
                         requesting_user=username,
                         remaining_seconds=remaining_seconds,
-                        session_timeout=SESSION_TIMEOUT_SECONDS,
+                        session_timeout=timeout_seconds,
                     ),
                     429,
                     {"Content-Type": "text/html; charset=utf-8"},
@@ -295,6 +300,7 @@ def setup_routes():
                 _active_user["id"] = user_id
                 _active_user["username"] = username
                 _active_user["start_time"] = now
+                _active_user["is_vip"] = False  # 普通用户
                 if username in _waiting_users:
                     _waiting_users.remove(username)
             elif user_id == _active_user["id"]:
@@ -307,6 +313,38 @@ def setup_routes():
             SESSION_COOKIE_NAME,
             user_id,
             max_age=SESSION_TIMEOUT_SECONDS,
+            httponly=True,
+            samesite='Lax'
+        )
+        return response
+
+    @app.route('/vip', methods=['GET'])
+    def vip():
+        """VIP 页面 - 直接进入控制界面，无需等待，10分钟超时"""
+        username = request.cookies.get(USERNAME_COOKIE_NAME)
+        if not username:
+            return redirect(url_for('login'))
+
+        user_id = request.cookies.get(SESSION_COOKIE_NAME) or str(uuid.uuid4())
+        now = time.time()
+
+        with _active_user_lock:
+            # VIP 用户直接获取控制权，无需等待
+            # 如果当前有活跃用户，VIP 用户会直接替换
+            _active_user["id"] = user_id
+            _active_user["username"] = username
+            _active_user["start_time"] = now
+            _active_user["is_vip"] = True  # 标记为 VIP
+            
+            # 从等待列表中移除
+            if username in _waiting_users:
+                _waiting_users.remove(username)
+
+        response = make_response(render_template('index.html', username=username))
+        response.set_cookie(
+            SESSION_COOKIE_NAME,
+            user_id,
+            max_age=VIP_SESSION_TIMEOUT_SECONDS,
             httponly=True,
             samesite='Lax'
         )
@@ -325,9 +363,13 @@ def setup_routes():
         with _active_user_lock:
             active_id = _active_user["id"]
             active_start = _active_user["start_time"]
+            active_is_vip = _active_user.get("is_vip", False)
             has_active = active_id is not None and active_start > 0
+            
+            # 根据是否是 VIP 选择超时时间
+            timeout_seconds = VIP_SESSION_TIMEOUT_SECONDS if active_is_vip else SESSION_TIMEOUT_SECONDS
             elapsed = now - active_start if has_active else 0
-            is_active = has_active and elapsed < SESSION_TIMEOUT_SECONDS
+            is_active = has_active and elapsed < timeout_seconds
             current_owner = _active_user.get("username")
             
             # 如果用户不在等待列表中，添加到等待列表
@@ -336,7 +378,7 @@ def setup_routes():
                     _waiting_users.append(username)
             
             waiting_view = [u for u in _waiting_users if u != current_owner]
-            remaining_seconds = max(0, int(SESSION_TIMEOUT_SECONDS - elapsed)) if is_active else 0
+            remaining_seconds = max(0, int(timeout_seconds - elapsed)) if is_active else 0
         
         return render_template(
             "waiting.html",
@@ -344,7 +386,7 @@ def setup_routes():
             waiting_users=waiting_view,
             requesting_user=username,
             remaining_seconds=remaining_seconds,
-            session_timeout=SESSION_TIMEOUT_SECONDS,
+            session_timeout=timeout_seconds,
         )
     
     @app.route('/login', methods=['GET', 'POST'])
@@ -378,19 +420,24 @@ def setup_routes():
             active_id = _active_user["id"]
             active_start = _active_user["start_time"]
             active_username = _active_user.get("username")
+            active_is_vip = _active_user.get("is_vip", False)
             waiting_view = [u for u in _waiting_users if u != active_username]
 
             has_active = active_id is not None and active_start > 0
             elapsed = now - active_start if has_active else 0
-            is_active = has_active and elapsed < SESSION_TIMEOUT_SECONDS
-            remaining = SESSION_TIMEOUT_SECONDS - elapsed if is_active else 0
+            
+            # 根据是否是 VIP 选择超时时间
+            timeout_seconds = VIP_SESSION_TIMEOUT_SECONDS if active_is_vip else SESSION_TIMEOUT_SECONDS
+            is_active = has_active and elapsed < timeout_seconds
+            remaining = timeout_seconds - elapsed if is_active else 0
             is_current_user = is_active and user_id == active_id
 
         return jsonify({
             "is_active_user": bool(is_current_user),
             "remaining_seconds": max(0, int(remaining if is_current_user else 0)),
             "current_owner": active_username if is_active else None,
-            "session_timeout": SESSION_TIMEOUT_SECONDS,
+            "session_timeout": timeout_seconds,
+            "is_vip": active_is_vip if is_active else False,
             "waiting_users": waiting_view,
         })
 
