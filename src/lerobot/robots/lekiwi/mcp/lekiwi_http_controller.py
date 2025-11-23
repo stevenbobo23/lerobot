@@ -120,32 +120,13 @@ def start_streaming():
             except:
                 pass
             
-            # 树莓派优化：固定使用较低分辨率以降低 CPU 占用
-            # 原始分辨率可能很大，强制缩放到较小尺寸
             if test_frame is None:
-                # 使用默认低分辨率
-                width, height = 480, 360
+                # 使用默认分辨率
+                width, height = 640, 480
             else:
-                original_height, original_width = test_frame.shape[:2]
-                # 限制最大分辨率，树莓派使用较小分辨率
-                max_width, max_height = 480, 360
-                if original_width > max_width or original_height > max_height:
-                    # 按比例缩放
-                    scale = min(max_width / original_width, max_height / original_height)
-                    width = int(original_width * scale)
-                    height = int(original_height * scale)
-                    # 确保是偶数（H.264 要求）
-                    width = width - (width % 2)
-                    height = height - (height % 2)
-                else:
-                    width, height = original_width, original_height
-                    # 确保是偶数
-                    width = width - (width % 2)
-                    height = height - (height % 2)
+                height, width = test_frame.shape[:2]
             
-            logger.info(f"推流分辨率: {width}x{height} (树莓派优化模式)")
-            
-            # 构建 ffmpeg 命令 - 树莓派优化参数
+            # 构建 ffmpeg 命令
             # 使用 rawvideo 输入，从 stdin 读取帧数据
             # 注意：需要将 BGR 转换为 RGB，所以使用 rgb24 格式
             ffmpeg_cmd = [
@@ -154,16 +135,15 @@ def start_streaming():
                 '-vcodec', 'rawvideo',
                 '-s', f'{width}x{height}',
                 '-pix_fmt', 'rgb24',  # 使用 RGB 格式
-                '-r', '10',  # 降低帧率到 10fps（树莓派优化）
+                '-r', '15',  # 帧率 15fps
                 '-i', '-',  # 从 stdin 读取
                 '-c:v', 'libx264',
-                '-preset', 'veryfast',  # 从 ultrafast 改为 veryfast，降低 CPU 占用
+                '-preset', 'ultrafast',
                 '-tune', 'zerolatency',
-                '-b:v', '400k',  # 降低比特率到 400k（树莓派优化）
-                '-maxrate', '500k',
-                '-bufsize', '600k',
-                '-g', '20',  # 降低 GOP 大小
-                '-threads', '2',  # 限制编码线程数
+                '-b:v', '800k',  # 比特率
+                '-maxrate', '1000k',
+                '-bufsize', '1200k',
+                '-g', '30',  # GOP 大小
                 '-f', 'flv',
                 rtmp_url
             ]
@@ -213,26 +193,15 @@ def start_streaming():
             frame_count = 0
             last_log_time = time.time()
             
-            # 树莓派优化：降低帧读取频率，减少 CPU 占用
-            frame_interval = 0.1  # 10fps = 每 0.1 秒一帧
-            last_frame_time = time.time()
-            
             while _stream_running and service and service.robot.is_connected:
                 try:
-                    current_time = time.time()
-                    # 控制帧率，避免过度占用 CPU
-                    if current_time - last_frame_time < frame_interval:
-                        time.sleep(0.01)  # 短暂休眠，降低 CPU 占用
-                        continue
-                    
                     # 读取摄像头帧
                     frame = camera.async_read(timeout_ms=100)
                     if frame is not None and frame.size > 0:
-                        # 确保帧尺寸匹配（树莓派优化：使用更快的插值方法）
+                        # 确保帧尺寸匹配
                         h, w = frame.shape[:2]
                         if w != width or h != height:
-                            # 使用 INTER_LINEAR 而不是默认的，稍微快一些
-                            frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
+                            frame = cv2.resize(frame, (width, height))
                         
                         # 将 BGR 转换为 RGB（OpenCV 默认 BGR，ffmpeg 需要 RGB）
                         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -242,11 +211,10 @@ def start_streaming():
                             _stream_process.stdin.write(frame_rgb.tobytes())
                             _stream_process.stdin.flush()
                             frame_count += 1
-                            last_frame_time = current_time
                             
-                            # 每30秒记录一次日志（减少日志频率）
-                            if time.time() - last_log_time > 30:
-                                logger.info(f"推流中... 已推送 {frame_count} 帧 (分辨率: {width}x{height}, 10fps)")
+                            # 每10秒记录一次日志
+                            if time.time() - last_log_time > 10:
+                                logger.info(f"推流中... 已推送 {frame_count} 帧")
                                 last_log_time = time.time()
                         except BrokenPipeError:
                             logger.error("ffmpeg 进程已断开")
@@ -255,10 +223,10 @@ def start_streaming():
                             logger.error(f"写入帧数据失败: {e}")
                             break
                     else:
-                        time.sleep(0.05)  # 增加休眠时间，降低 CPU 占用
+                        time.sleep(0.01)
                 except Exception as e:
                     logger.error(f"读取摄像头帧失败: {e}")
-                    time.sleep(0.2)  # 错误时增加休眠时间
+                    time.sleep(0.1)
             
         except Exception as e:
             logger.error(f"推流线程错误: {e}")
