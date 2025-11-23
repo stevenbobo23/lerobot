@@ -53,7 +53,7 @@ _active_user_lock = threading.Lock()
 
 # 推流配置
 STREAMING_ENABLED = True  # 暂时关闭推流逻辑
-STREAM_URL = "webrtc://210004.push.tlivecloud.com/live/lerobot?txSecret=54c4483bc0c1b433913f2b4cbcddd0c7&txTime=69209EE5"
+STREAM_URL = "rtmp://210004.push.tlivecloud.com/live/moyu?txSecret=aec52c648a9564a9142f1106e63f2c96&txTime=7104170D"
 _stream_process = None
 _stream_thread = None
 _stream_running = False
