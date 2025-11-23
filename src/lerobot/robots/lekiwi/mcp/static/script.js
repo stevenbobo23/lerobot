@@ -74,6 +74,111 @@ function exitControl() {
     }
 }
 
+// 推流控制
+let isStreaming = false;
+
+function toggleStreaming() {
+    const btn = document.getElementById('stream-btn');
+    const indicator = document.getElementById('stream-indicator');
+    const text = document.getElementById('stream-text');
+    
+    // 禁用按钮，防止重复点击
+    btn.disabled = true;
+    
+    if (isStreaming) {
+        // 停止推流
+        fetch('/stream/stop', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                isStreaming = false;
+                updateStreamButton(false);
+            } else {
+                alert('停止推流失败: ' + data.message);
+            }
+            btn.disabled = false;
+        })
+        .catch(error => {
+            console.error('停止推流失败:', error);
+            alert('停止推流失败: ' + error.message);
+            btn.disabled = false;
+        });
+    } else {
+        // 启动推流
+        fetch('/stream/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                isStreaming = true;
+                updateStreamButton(true);
+            } else {
+                alert('启动推流失败: ' + data.message);
+            }
+            btn.disabled = false;
+        })
+        .catch(error => {
+            console.error('启动推流失败:', error);
+            alert('启动推流失败: ' + error.message);
+            btn.disabled = false;
+        });
+    }
+}
+
+function updateStreamButton(streaming) {
+    const btn = document.getElementById('stream-btn');
+    const indicator = document.getElementById('stream-indicator');
+    const text = document.getElementById('stream-text');
+    
+    if (streaming) {
+        btn.classList.remove('bg-gray-700', 'border-gray-600');
+        btn.classList.add('bg-red-600', 'border-red-500', 'hover:bg-red-700');
+        indicator.classList.remove('bg-gray-500');
+        indicator.classList.add('bg-red-500', 'animate-pulse');
+        text.textContent = '停止直播';
+    } else {
+        btn.classList.remove('bg-red-600', 'border-red-500', 'hover:bg-red-700');
+        btn.classList.add('bg-gray-700', 'border-gray-600');
+        indicator.classList.remove('bg-red-500', 'animate-pulse');
+        indicator.classList.add('bg-gray-500');
+        text.textContent = '开启直播';
+    }
+}
+
+// 检查推流状态
+function checkStreamStatus() {
+    fetch('/stream/status')
+        .then(response => response.json())
+        .then(data => {
+            isStreaming = data.streaming || false;
+            updateStreamButton(isStreaming);
+            
+            // 如果推流功能未启用，禁用按钮
+            const btn = document.getElementById('stream-btn');
+            if (!data.enabled) {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                const text = document.getElementById('stream-text');
+                text.textContent = '推流未启用';
+            } else {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        })
+        .catch(error => {
+            console.debug('获取推流状态失败:', error);
+        });
+}
+
 // 会话倒计时
 let sessionCountdownInterval = null;
 
@@ -651,8 +756,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 1000); // 等待1秒，确保机器人连接状态已更新
     
+    // 检查推流状态
+    checkStreamStatus();
+    
     // 定期检查摄像头状态（5秒一次）
     setInterval(checkCameraStatus, 5000);
     updateSessionInfo();
     setInterval(updateSessionInfo, 5000);
+    // 定期检查推流状态（3秒一次）
+    setInterval(checkStreamStatus, 3000);
 });
