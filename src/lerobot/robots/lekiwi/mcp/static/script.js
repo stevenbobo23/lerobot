@@ -45,34 +45,33 @@ function sendCommand(command) {
 }
 
 function showNotification(message, type) {
-    // 创建通知元素
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-    
-    // 设置样式
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 10px 20px;
-        border-radius: 5px;
-        color: white;
-        font-weight: bold;
-        z-index: 1000;
-        transition: all 0.3s ease;
-        ${type === 'success' ? 'background-color: #28a745;' : 'background-color: #dc3545;'}
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // 3秒后自动移除
-    setTimeout(() => {
-        notification.style.opacity = '0';
-        setTimeout(() => {
-            document.body.removeChild(notification);
-        }, 300);
-    }, 3000);
+    // 通知功能已禁用
+    return;
+}
+
+// 退出控制
+function exitControl() {
+    if (confirm('确定要退出控制吗？退出后其他人就可以进入控制界面了。')) {
+        fetch('/exit_control', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 跳转到等待页面
+                window.location.href = '/wait';
+            } else {
+                alert('退出控制失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('退出控制失败:', error);
+            alert('退出控制失败: ' + error.message);
+        });
+    }
 }
 
 // 会话倒计时

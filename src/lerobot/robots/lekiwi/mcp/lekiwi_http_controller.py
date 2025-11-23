@@ -410,6 +410,38 @@ def setup_routes():
 
         return render_template('login.html', error=error)
 
+    @app.route('/exit_control', methods=['POST'])
+    def exit_control():
+        """退出控制 - 清除当前活跃用户，让其他人可以进入"""
+        user_id = request.cookies.get(SESSION_COOKIE_NAME)
+        username = request.cookies.get(USERNAME_COOKIE_NAME)
+        
+        with _active_user_lock:
+            active_id = _active_user["id"]
+            
+            # 只有当前活跃用户才能退出控制
+            if user_id == active_id:
+                # 清除活跃用户
+                _active_user["id"] = None
+                _active_user["start_time"] = 0.0
+                _active_user["username"] = None
+                _active_user["is_vip"] = False
+                
+                # 从等待列表中移除（如果存在）
+                if username and username in _waiting_users:
+                    _waiting_users.remove(username)
+                
+                logger.info(f"用户 {username} 已退出控制")
+                return jsonify({
+                    "success": True,
+                    "message": "已退出控制"
+                })
+            else:
+                return jsonify({
+                    "success": False,
+                    "message": "您不是当前活跃用户，无法退出控制"
+                }), 403
+
     @app.route('/session_info', methods=['GET'])
     def session_info():
         """获取当前会话占用信息"""
