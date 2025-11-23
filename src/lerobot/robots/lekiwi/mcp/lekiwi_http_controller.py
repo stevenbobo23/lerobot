@@ -52,7 +52,7 @@ _waiting_users = []
 _active_user_lock = threading.Lock()
 
 # 推流配置
-STREAMING_ENABLED = True  # 暂时关闭推流逻辑
+STREAMING_ENABLED = False  # 暂时关闭推流逻辑
 STREAM_URL = "webrtc://210004.push.tlivecloud.com/live/lerobot?txSecret=54c4483bc0c1b433913f2b4cbcddd0c7&txTime=69209EE5"
 _stream_process = None
 _stream_thread = None
