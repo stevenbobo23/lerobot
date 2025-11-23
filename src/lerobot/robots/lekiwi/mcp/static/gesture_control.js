@@ -167,7 +167,7 @@ async function toggleGestureControl() {
                 gestureControlEnabled = false;
                 btn.classList.remove('bg-green-600', 'text-white', 'border-green-500');
                 btn.classList.add('bg-gray-800', 'text-gray-400', 'border-gray-700');
-                btn.innerHTML = '<span>✋</span> 手势';
+                btn.innerHTML = '<span>✋</span> 试试手势控制';
                 previewContainer.classList.add('hidden');
                 if (videoElement) {
                     videoElement.classList.add('hidden');
@@ -181,25 +181,6 @@ async function toggleGestureControl() {
         btn.innerHTML = '<span>✋</span> 手势';
         
         previewContainer.classList.add('hidden');
-        
-        // Chrome 兼容：停止摄像头以释放资源
-        if (camera) {
-            try {
-                camera.stop();
-            } catch (e) {
-                console.warn("停止摄像头时出错:", e);
-            }
-        }
-        
-        if (videoElement) {
-            videoElement.classList.add('hidden');
-            // 停止视频流
-            if (videoElement.srcObject) {
-                const tracks = videoElement.srcObject.getTracks();
-                tracks.forEach(track => track.stop());
-                videoElement.srcObject = null;
-            }
-        }
     }
 }
 
