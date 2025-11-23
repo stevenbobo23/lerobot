@@ -101,6 +101,16 @@ def start_streaming():
             rtmp_url = convert_webrtc_to_rtmp(STREAM_URL)
             logger.info(f"开始推流到: {rtmp_url}")
             
+            # 检查 ffmpeg 是否可用
+            try:
+                subprocess.run(['ffmpeg', '-version'], 
+                             capture_output=True, 
+                             timeout=2, 
+                             check=True)
+            except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
+                logger.error(f"ffmpeg 不可用: {e}")
+                raise RuntimeError("ffmpeg 未安装或不可用，请先安装: sudo apt-get install ffmpeg")
+            
             # 获取摄像头分辨率
             camera = service.robot.cameras['front']
             # 尝试读取一帧以获取分辨率
@@ -141,23 +151,44 @@ def start_streaming():
             logger.info(f"启动 ffmpeg 推流进程")
             logger.debug(f"ffmpeg 命令: {' '.join(ffmpeg_cmd)}")
             
-            _stream_process = subprocess.Popen(
-                ffmpeg_cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                bufsize=0
-            )
+            try:
+                _stream_process = subprocess.Popen(
+                    ffmpeg_cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    bufsize=0
+                )
+            except FileNotFoundError:
+                logger.error("ffmpeg 未找到，请确保已安装 ffmpeg")
+                raise RuntimeError("ffmpeg 未安装，无法启动推流。请安装: sudo apt-get install ffmpeg")
+            except Exception as e:
+                logger.error(f"启动 ffmpeg 进程失败: {e}")
+                raise
             
             # 启动一个线程来读取 stderr，以便捕获错误信息
             def read_stderr():
                 if _stream_process and _stream_process.stderr:
                     for line in iter(_stream_process.stderr.readline, b''):
                         if line:
-                            logger.debug(f"ffmpeg: {line.decode('utf-8', errors='ignore').strip()}")
+                            line_str = line.decode('utf-8', errors='ignore').strip()
+                            # 将错误信息提升到 warning 级别，便于调试
+                            if 'error' in line_str.lower() or 'failed' in line_str.lower():
+                                logger.warning(f"ffmpeg 错误: {line_str}")
+                            else:
+                                logger.debug(f"ffmpeg: {line_str}")
             
             stderr_thread = threading.Thread(target=read_stderr, daemon=True)
             stderr_thread.start()
+            
+            # 等待一小段时间，检查 ffmpeg 进程是否立即退出
+            time.sleep(0.5)
+            if _stream_process.poll() is not None:
+                # 进程已退出，读取错误信息
+                stderr_output = _stream_process.stderr.read().decode('utf-8', errors='ignore')
+                logger.error(f"ffmpeg 进程立即退出，返回码: {_stream_process.returncode}")
+                logger.error(f"ffmpeg 错误输出: {stderr_output}")
+                raise RuntimeError(f"ffmpeg 启动失败: {stderr_output}")
             
             frame_count = 0
             last_log_time = time.time()
