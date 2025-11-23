@@ -121,32 +121,32 @@
                 </h3>
                 
                 <div class="grid grid-cols-3 gap-2 max-w-[260px] mx-auto">
-                    <button class="h-14 bg-gray-800 rounded hover:bg-gray-700 active:bg-tech-600 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex flex-col items-center justify-center text-gray-400"
+                    <button id="btn-q" data-key="q" class="h-14 bg-gray-800 rounded hover:bg-gray-700 active:bg-tech-600 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex flex-col items-center justify-center text-gray-400"
                             onmousedown="sendCommand('rotate_left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_left')" ontouchend="sendCommand('stop')">
                         <span class="text-lg">↺</span>
                         <span class="text-[10px] font-mono">Q</span>
                     </button>
                     
-                    <button class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold shadow-lg shadow-tech-900/20"
+                    <button id="btn-w" data-key="w" class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold shadow-lg shadow-tech-900/20"
                             onmousedown="sendCommand('forward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('forward')" ontouchend="sendCommand('stop')">W</button>
                     
-                    <button class="h-14 bg-gray-800 rounded hover:bg-gray-700 active:bg-tech-600 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex flex-col items-center justify-center text-gray-400"
+                    <button id="btn-e" data-key="e" class="h-14 bg-gray-800 rounded hover:bg-gray-700 active:bg-tech-600 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex flex-col items-center justify-center text-gray-400"
                             onmousedown="sendCommand('rotate_right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('rotate_right')" ontouchend="sendCommand('stop')">
                         <span class="text-lg">↻</span>
                         <span class="text-[10px] font-mono">E</span>
                     </button>
                     
-                    <button class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold"
+                    <button id="btn-a" data-key="a" class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold"
                             onmousedown="sendCommand('left')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('left')" ontouchend="sendCommand('stop')">A</button>
                     
-                    <button class="h-14 bg-red-900/30 text-red-400 border-red-900/50 border border-b-2 rounded active:bg-red-600 active:text-white active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center"
+                    <button id="btn-space" data-key=" " class="h-14 bg-red-900/30 text-red-400 border-red-900/50 border border-b-2 rounded active:bg-red-600 active:text-white active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center"
                             onclick="sendCommand('stop')">停止</button>
                     
-                    <button class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold"
+                    <button id="btn-d" data-key="d" class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold"
                             onmousedown="sendCommand('right')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('right')" ontouchend="sendCommand('stop')">D</button>
                     
                     <div class="opacity-0"></div>
-                    <button class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold"
+                    <button id="btn-s" data-key="s" class="h-14 bg-gray-700 rounded hover:bg-gray-600 active:bg-tech-500 active:text-white border-b-2 border-gray-950 active:border-b-0 active:translate-y-[2px] transition-all flex items-center justify-center text-white font-bold"
                             onmousedown="sendCommand('backward')" onmouseup="sendCommand('stop')" ontouchstart="sendCommand('backward')" ontouchend="sendCommand('stop')">S</button>
                     <div class="opacity-0"></div>
                 </div>

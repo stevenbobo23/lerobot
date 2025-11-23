@@ -194,6 +194,63 @@ function updateSessionInfo() {
 // 键盘控制支持 - 记录按下的按键
 const pressedKeys = new Set();
 
+// 按键到按钮ID的映射
+const keyToButtonId = {
+    'q': 'btn-q',
+    'w': 'btn-w',
+    'e': 'btn-e',
+    'a': 'btn-a',
+    's': 'btn-s',
+    'd': 'btn-d',
+    ' ': 'btn-space',
+    'h': 'btn-q',  // H 键也控制左旋转，映射到 Q 按钮
+    'j': 'btn-e'   // J 键也控制右旋转，映射到 E 按钮
+};
+
+// 高亮按钮
+function highlightButton(key) {
+    const buttonId = keyToButtonId[key];
+    if (buttonId) {
+        const button = document.getElementById(buttonId);
+        if (button) {
+            // 停止按钮使用红色高亮
+            if (buttonId === 'btn-space') {
+                button.classList.add('bg-red-600', 'text-white', 'shadow-lg', 'shadow-red-500/50');
+                button.classList.remove('bg-red-900/30', 'text-red-400');
+            } else {
+                button.classList.add('bg-tech-500', 'text-white', 'shadow-lg', 'shadow-tech-500/50');
+                button.classList.remove('bg-gray-800', 'bg-gray-700', 'text-gray-400');
+            }
+            // 添加按下效果
+            button.style.transform = 'translateY(2px)';
+            button.style.borderBottomWidth = '0px';
+        }
+    }
+}
+
+// 取消高亮按钮
+function unhighlightButton(key) {
+    const buttonId = keyToButtonId[key];
+    if (buttonId) {
+        const button = document.getElementById(buttonId);
+        if (button) {
+            // 恢复原始样式
+            button.classList.remove('bg-tech-500', 'text-white', 'shadow-lg', 'shadow-tech-500/50');
+            button.style.transform = '';
+            button.style.borderBottomWidth = '';
+            
+            // 根据按钮类型恢复原始背景色
+            if (buttonId === 'btn-q' || buttonId === 'btn-e') {
+                button.classList.add('bg-gray-800', 'text-gray-400');
+            } else if (buttonId === 'btn-space') {
+                button.classList.add('bg-red-900/30', 'text-red-400');
+            } else {
+                button.classList.add('bg-gray-700', 'text-white');
+            }
+        }
+    }
+}
+
 document.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase();
     const keyMap = {
@@ -214,6 +271,8 @@ document.addEventListener('keydown', (e) => {
         if (!pressedKeys.has(key)) {
             pressedKeys.add(key);
             sendCommand(keyMap[key]);
+            // 高亮对应的按钮
+            highlightButton(key);
         }
     }
 });
@@ -229,13 +288,16 @@ document.addEventListener('keyup', (e) => {
         'q': 'rotate_left',
         'e': 'rotate_right',
         'h': 'rotate_left',  // H 键也控制左旋转
-        'j': 'rotate_right'  // J 键也控制右旋转
+        'j': 'rotate_right', // J 键也控制右旋转
+        ' ': 'stop'  // 空格键也处理
     };
     
     if (keyMap[key]) {
         e.preventDefault();
         pressedKeys.delete(key);
-        // 按键松开时发送停止命令（除了空格键）
+        // 取消高亮对应的按钮
+        unhighlightButton(key);
+        // 按键松开时发送停止命令（除了空格键，因为空格键是点击式命令）
         if (key !== ' ') {
             sendCommand('stop');
         }
