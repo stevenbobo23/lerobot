@@ -65,7 +65,9 @@ echo "$(date): Changed to directory: $(pwd)" >> "$LOG_FILE"
 
 # 运行启动脚本
 echo "$(date): Starting Tuya MCP HTTP service..." >> "$LOG_FILE"
-./start_tuya_mcp_http_8000.sh --tuiliu >> "$LOG_FILE" 2>&1
+# ./start_tuya_mcp_http_8000.sh --tuiliu >> "$LOG_FILE" 2>&1
+./start_lekiwi_http.sh --tuiliu >> "$LOG_FILE" 2>&1
+
 
 # 脚本结束
 echo "$(date): Script ended with exit code: $?" >> "$LOG_FILE"
