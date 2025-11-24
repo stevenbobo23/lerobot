@@ -490,6 +490,25 @@ function initArmSliders() {
     });
 }
 
+// 前置摄像头控制
+let isFrontCameraEnabled = false;
+
+function enableFrontCamera() {
+    isFrontCameraEnabled = true;
+    const overlay = document.getElementById('front-camera-overlay');
+    const img = document.getElementById('front-camera');
+    
+    if (overlay) overlay.style.display = 'none';
+    if (img) {
+        img.classList.remove('hidden');
+        // 如果有 data-src，则加载视频
+        if (img.dataset.src) {
+             // 重新初始化视频流
+             initVideoStreams();
+        }
+    }
+}
+
 // 初始化视频流
 function initVideoStreams() {
     // 获取摄像头状态
@@ -518,6 +537,11 @@ function initSingleVideoStream(cameraName, displayName, isConnected, frameAvaila
     const imgElement = document.getElementById(cameraName + '-camera');
     if (!imgElement) {
         console.warn(`找不到摄像头元素: ${cameraName}-camera`);
+        return;
+    }
+    
+    // 如果是前置摄像头且未启用，则不加载
+    if (cameraName === 'front' && !isFrontCameraEnabled) {
         return;
     }
     
@@ -615,6 +639,11 @@ function checkCameraStatus() {
                 data.cameras.forEach(camera => {
                     const imgElement = document.getElementById(camera.name + '-camera');
                     if (imgElement) {
+                        // 如果是前置摄像头且未启用，则跳过检查
+                        if (camera.name === 'front' && !isFrontCameraEnabled) {
+                            return;
+                        }
+
                         if (camera.connected && camera.frame_available) {
                             if (imgElement.style.display === 'none') {
                                 // 摄像头恢复了，重新加载视频流
