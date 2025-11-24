@@ -54,6 +54,7 @@ _active_user_lock = threading.Lock()
 # 推流配置
 STREAMING_ENABLED = False  # 暂时关闭推流逻辑
 STREAM_URL = "rtmp://210004.push.tlivecloud.com/live/moyu?txSecret=aec52c648a9564a9142f1106e63f2c96&txTime=7104170D"
+STREAM_ROTATE_180 = False
 _stream_process = None
 _stream_thread = None
 _stream_running = False
@@ -94,7 +95,7 @@ def start_streaming():
     
     def stream_worker():
         """推流工作线程"""
-        global _stream_process, _stream_running, service, logger
+        global _stream_process, _stream_running, service, logger, STREAM_ROTATE_180
         
         try:
             # 将 WebRTC URL 转换为 RTMP
@@ -202,6 +203,10 @@ def start_streaming():
                         h, w = frame.shape[:2]
                         if w != width or h != height:
                             frame = cv2.resize(frame, (width, height))
+
+                        # 旋转处理
+                        if STREAM_ROTATE_180:
+                            frame = cv2.rotate(frame, cv2.ROTATE_180)
                         
                         # 将 BGR 转换为 RGB（OpenCV 默认 BGR，ffmpeg 需要 RGB）
                         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -803,8 +808,32 @@ if __name__ == "__main__":
         default=8080,
         help="服务器端口（默认: 8080"
     )
+    parser.add_argument(
+        "--enable-stream",
+        action="store_true",
+        help="启用 RTMP 视频推流"
+    )
+    parser.add_argument(
+        "--stream-url",
+        type=str,
+        default=STREAM_URL,
+        help="RTMP 推流地址"
+    )
+    parser.add_argument(
+        "--rotate-180",
+        action="store_true",
+        help="将推流画面旋转 180 度"
+    )
     
     args = parser.parse_args()
+    
+    # 应用推流配置
+    if args.enable_stream:
+        STREAMING_ENABLED = True
+    if args.stream_url:
+        STREAM_URL = args.stream_url
+    if args.rotate_180:
+        STREAM_ROTATE_180 = True
     
     print("=== LeKiwi HTTP 控制器 ===")
     print(f"机器人 ID: {args.robot_id}")
