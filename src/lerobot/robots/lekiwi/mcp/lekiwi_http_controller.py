@@ -209,7 +209,10 @@ def start_streaming():
                             frame = cv2.rotate(frame, cv2.ROTATE_180)
                         
                         # 将 BGR 转换为 RGB（OpenCV 默认 BGR，ffmpeg 需要 RGB）
-                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        # 注意：lekiwi的video_feed逻辑暗示camera.async_read返回的是RGB数据
+                        # 因此这里不再转换，直接发送
+                        # frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        frame_rgb = frame
                         
                         # 写入 ffmpeg stdin
                         try:
@@ -221,6 +224,12 @@ def start_streaming():
                             if time.time() - last_log_time > 10:
                                 logger.info(f"推流中... 已推送 {frame_count} 帧")
                                 last_log_time = time.time()
+                                
+                            # 短暂休眠以释放CPU
+                            # 使用计算出的休眠时间以维持目标帧率(15fps -> ~0.066s)
+                            # 但考虑到处理时间，休眠稍微短一点
+                            time.sleep(0.05)
+                            
                         except BrokenPipeError:
                             logger.error("ffmpeg 进程已断开")
                             break
