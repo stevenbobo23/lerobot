@@ -121,11 +121,8 @@ def start_streaming():
             except:
                 pass
             
-            if test_frame is None:
-                # 使用默认分辨率
-                width, height = 640, 480
-            else:
-                height, width = test_frame.shape[:2]
+            # 设定推流目标分辨率，降低CPU占用
+            stream_width, stream_height = 640, 480
             
             # 构建 ffmpeg 命令
             # 使用 rawvideo 输入，从 stdin 读取帧数据
@@ -134,16 +131,16 @@ def start_streaming():
                 'ffmpeg',
                 '-f', 'rawvideo',
                 '-vcodec', 'rawvideo',
-                '-s', f'{width}x{height}',
+                '-s', f'{stream_width}x{stream_height}',
                 '-pix_fmt', 'rgb24',  # 使用 RGB 格式
                 '-r', '15',  # 帧率 15fps
                 '-i', '-',  # 从 stdin 读取
                 '-c:v', 'libx264',
                 '-preset', 'ultrafast',
                 '-tune', 'zerolatency',
-                '-b:v', '800k',  # 比特率
-                '-maxrate', '1000k',
-                '-bufsize', '1200k',
+                '-b:v', '400k',  # 降低比特率
+                '-maxrate', '600k',
+                '-bufsize', '800k',
                 '-g', '30',  # GOP 大小
                 '-f', 'flv',
                 rtmp_url
@@ -199,20 +196,15 @@ def start_streaming():
                     # 读取摄像头帧
                     frame = camera.async_read(timeout_ms=100)
                     if frame is not None and frame.size > 0:
-                        # 确保帧尺寸匹配
-                        h, w = frame.shape[:2]
-                        if w != width or h != height:
-                            frame = cv2.resize(frame, (width, height))
+                        # 强制调整大小以匹配推流分辨率并降低负载
+                        frame = cv2.resize(frame, (stream_width, stream_height))
 
                         # 旋转处理
                         if STREAM_ROTATE_180:
                             frame = cv2.rotate(frame, cv2.ROTATE_180)
                         
                         # 将 BGR 转换为 RGB（OpenCV 默认 BGR，ffmpeg 需要 RGB）
-                        # 注意：lekiwi的video_feed逻辑暗示camera.async_read返回的是RGB数据
-                        # 因此这里不再转换，直接发送
-                        # frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                        frame_rgb = frame
+                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                         
                         # 写入 ffmpeg stdin
                         try:
@@ -609,9 +601,9 @@ def setup_routes():
                                 # 压缩策略1: 降低分辨率 (缩小至原来的70%)
                                 # 保持 10fps 的同时提供较好的画质
                                 height, width = frame.shape[:2]
-                                new_width = int(width * 0.7)
-                                new_height = int(height * 0.7)
-                                frame_resized = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
+                                new_width = int(width * 0.5)
+                                new_height = int(height * 0.5)
+                                frame_resized = cv2.resize(frame, (new_width, new_height)) # 使用默认插值以提高速度
                                 
                                 # 颜色通道调整
                                 # frame 来自 lerobot (通常是 RGB)
