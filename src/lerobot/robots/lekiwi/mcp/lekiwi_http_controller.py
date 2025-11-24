@@ -121,27 +121,32 @@ def start_streaming():
             except:
                 pass
             
-            # 设定推流目标分辨率，降低CPU占用
-            stream_width, stream_height = 640, 480
+            if test_frame is None:
+                # 使用默认分辨率
+                width, height = 640, 480
+            else:
+                height, width = test_frame.shape[:2]
             
             # 构建 ffmpeg 命令
             # 使用 rawvideo 输入，从 stdin 读取帧数据
-            # 注意：需要将 BGR 转换为 RGB，所以使用 rgb24 格式
+            # 参考用户提供的低CPU占用参数进行调整
             ffmpeg_cmd = [
                 'ffmpeg',
                 '-f', 'rawvideo',
                 '-vcodec', 'rawvideo',
-                '-s', f'{stream_width}x{stream_height}',
+                '-s', f'{width}x{height}',
                 '-pix_fmt', 'rgb24',  # 使用 RGB 格式
-                '-r', '15',  # 帧率 15fps
+                '-r', '10',  # 降低帧率到 10fps
                 '-i', '-',  # 从 stdin 读取
                 '-c:v', 'libx264',
                 '-preset', 'ultrafast',
                 '-tune', 'zerolatency',
-                '-b:v', '400k',  # 降低比特率
-                '-maxrate', '600k',
-                '-bufsize', '800k',
-                '-g', '30',  # GOP 大小
+                '-crf', '32',  # 增加 CRF 值以降低质量和 CPU 占用
+                '-b:v', '300k',  # 降低比特率到 300k
+                '-maxrate', '400k',
+                '-bufsize', '600k',
+                '-g', '20',  # GOP 大小调整为 20 (2秒一个关键帧)
+                '-threads', '1',  # 限制线程数
                 '-f', 'flv',
                 rtmp_url
             ]
@@ -196,15 +201,20 @@ def start_streaming():
                     # 读取摄像头帧
                     frame = camera.async_read(timeout_ms=100)
                     if frame is not None and frame.size > 0:
-                        # 强制调整大小以匹配推流分辨率并降低负载
-                        frame = cv2.resize(frame, (stream_width, stream_height))
+                        # 确保帧尺寸匹配
+                        h, w = frame.shape[:2]
+                        if w != width or h != height:
+                            frame = cv2.resize(frame, (width, height))
 
                         # 旋转处理
                         if STREAM_ROTATE_180:
                             frame = cv2.rotate(frame, cv2.ROTATE_180)
                         
                         # 将 BGR 转换为 RGB（OpenCV 默认 BGR，ffmpeg 需要 RGB）
-                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        # 注意：lekiwi的video_feed逻辑暗示camera.async_read返回的是RGB数据
+                        # 因此这里不再转换，直接发送
+                        # frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        frame_rgb = frame
                         
                         # 写入 ffmpeg stdin
                         try:
@@ -218,9 +228,9 @@ def start_streaming():
                                 last_log_time = time.time()
                                 
                             # 短暂休眠以释放CPU
-                            # 使用计算出的休眠时间以维持目标帧率(15fps -> ~0.066s)
+                            # 使用计算出的休眠时间以维持目标帧率(10fps -> 0.1s)
                             # 但考虑到处理时间，休眠稍微短一点
-                            time.sleep(0.05)
+                            time.sleep(0.09)
                             
                         except BrokenPipeError:
                             logger.error("ffmpeg 进程已断开")
@@ -601,9 +611,9 @@ def setup_routes():
                                 # 压缩策略1: 降低分辨率 (缩小至原来的70%)
                                 # 保持 10fps 的同时提供较好的画质
                                 height, width = frame.shape[:2]
-                                new_width = int(width * 0.5)
-                                new_height = int(height * 0.5)
-                                frame_resized = cv2.resize(frame, (new_width, new_height)) # 使用默认插值以提高速度
+                                new_width = int(width * 0.7)
+                                new_height = int(height * 0.7)
+                                frame_resized = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
                                 
                                 # 颜色通道调整
                                 # frame 来自 lerobot (通常是 RGB)
