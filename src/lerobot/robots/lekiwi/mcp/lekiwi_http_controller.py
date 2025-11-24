@@ -87,8 +87,8 @@ def start_streaming():
             logger.warning("机器人未连接，无法启动推流")
             return
         
-        if 'front' not in service.robot.cameras:
-            logger.warning("前置摄像头不可用，无法启动推流")
+        if 'wrist' not in service.robot.cameras:
+            logger.warning("手腕摄像头不可用，无法启动推流")
             return
         
         _stream_running = True
@@ -113,7 +113,7 @@ def start_streaming():
                 raise RuntimeError("ffmpeg 未安装或不可用，请先安装: sudo apt-get install ffmpeg")
             
             # 获取摄像头分辨率
-            camera = service.robot.cameras['front']
+            camera = service.robot.cameras['wrist']
             # 尝试读取一帧以获取分辨率
             test_frame = None
             try:
@@ -677,7 +677,7 @@ def setup_routes():
             "streaming": STREAMING_ENABLED and _stream_running,
             "enabled": STREAMING_ENABLED,
             "url": STREAM_URL if STREAMING_ENABLED else None,
-            "camera_available": service.robot.is_connected and 'front' in service.robot.cameras if service else False
+            "camera_available": service.robot.is_connected and 'wrist' in service.robot.cameras if service else False
         })
     
     @app.route('/cameras')
@@ -833,15 +833,20 @@ if __name__ == "__main__":
         action="store_true",
         help="将推流画面旋转 180 度"
     )
+    parser.add_argument(
+        "--tuiliu",
+        action="store_true",
+        help="一键开启推流（使用默认配置）"
+    )
     
     args = parser.parse_args()
     
     # 应用推流配置
-    if args.enable_stream:
+    if args.enable_stream or args.tuiliu:
         STREAMING_ENABLED = True
     if args.stream_url:
         STREAM_URL = args.stream_url
-    if args.rotate_180:
+    if args.rotate_180 or args.tuiliu:
         STREAM_ROTATE_180 = True
     
     print("=== LeKiwi HTTP 控制器 ===")
