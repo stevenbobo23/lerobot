@@ -589,18 +589,28 @@ def setup_routes():
         """视频流端点"""
         def generate():
             """生成MJPEG视频流"""
+            last_frame_time = 0
+            # 限制Web预览最高帧率为10fps，节省带宽
+            min_interval = 0.1
+            
             while True:
                 try:
+                    now = time.time()
+                    if now - last_frame_time < min_interval:
+                        # 避免空转，稍微休息一下
+                        time.sleep(0.01)
+                        continue
+                        
                     if service.robot.is_connected and camera in service.robot.cameras:
                         # 使用async_read方法读取摄像头帧，设置较短的超时时间
                         try:
                             frame = service.robot.cameras[camera].async_read(timeout_ms=100)
                             if frame is not None and frame.size > 0:
-                                # 压缩策略1: 降低分辨率 (缩小至原来的50%，例如 640x480 -> 320x240)
-                                # 优化带宽：320x240 配合低质量 JPEG 可显著降低流量
+                                # 压缩策略1: 极度降低分辨率 (缩小至原来的40%，例如 640x480 -> 256x192)
+                                # 优化带宽：256x192 配合低质量 JPEG 可将流量控制在极低水平
                                 height, width = frame.shape[:2]
-                                new_width = int(width * 0.5)
-                                new_height = int(height * 0.5)
+                                new_width = int(width * 0.4)
+                                new_height = int(height * 0.4)
                                 frame_resized = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
                                 
                                 # 颜色通道调整
@@ -609,14 +619,19 @@ def setup_routes():
                                 # 所以需要 RGB -> BGR (虽然调用的是 COLOR_BGR2RGB，但效果是交换 R/B 通道)
                                 frame_encoded_ready = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
                                 
-                                # 压缩策略2: 降低JPEG质量 (从60降到25) 以适应低带宽环境
-                                ret, jpeg = cv2.imencode('.jpg', frame_encoded_ready, [cv2.IMWRITE_JPEG_QUALITY, 25])
+                                # 压缩策略2: 极度降低JPEG质量 (从25降到15) 以适应极低带宽环境
+                                ret, jpeg = cv2.imencode('.jpg', frame_encoded_ready, [cv2.IMWRITE_JPEG_QUALITY, 15])
                                 if ret:
+                                    jpeg_bytes = jpeg.tobytes()
+                                    # 调试日志：打印帧大小（每100帧或者每隔一段时间打印一次，避免刷屏）
+                                    # logger.debug(f"Web预览帧大小: {len(jpeg_bytes)} bytes")
+                                    
                                     yield (b'--frame\r\n'
-                                           b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
-                                
-                                # 压缩策略3: 降低帧率 (增加等待时间，降低到约15fps)
-                                time.sleep(0.066)
+                                           b'Content-Type: image/jpeg\r\n\r\n' + jpeg_bytes + b'\r\n')
+                                    
+                                    last_frame_time = time.time()
+                                else:
+                                    time.sleep(0.05)
                             else:
                                 # 如果没有有效帧，等待一下
                                 time.sleep(0.05)
