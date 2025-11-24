@@ -596,17 +596,21 @@ def setup_routes():
                         try:
                             frame = service.robot.cameras[camera].async_read(timeout_ms=100)
                             if frame is not None and frame.size > 0:
-                                # 压缩策略1: 降低分辨率 (缩小至原来的70%)
+                                # 压缩策略1: 降低分辨率 (缩小至原来的50%，例如 640x480 -> 320x240)
+                                # 优化带宽：320x240 配合低质量 JPEG 可显著降低流量
                                 height, width = frame.shape[:2]
-                                new_width = int(width * 0.7)
-                                new_height = int(height * 0.7)
+                                new_width = int(width * 0.5)
+                                new_height = int(height * 0.5)
                                 frame_resized = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
                                 
-                                # 将BGR转换为RGB（OpenCV默认BGR，浏览器需要RGB）
-                                frame_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
+                                # 颜色通道调整
+                                # frame 来自 lerobot (通常是 RGB)
+                                # imencode 需要 BGR
+                                # 所以需要 RGB -> BGR (虽然调用的是 COLOR_BGR2RGB，但效果是交换 R/B 通道)
+                                frame_encoded_ready = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
                                 
-                                # 压缩策略2: 降低JPEG质量 (从85降到60)
-                                ret, jpeg = cv2.imencode('.jpg', frame_rgb, [cv2.IMWRITE_JPEG_QUALITY, 60])
+                                # 压缩策略2: 降低JPEG质量 (从60降到25) 以适应低带宽环境
+                                ret, jpeg = cv2.imencode('.jpg', frame_encoded_ready, [cv2.IMWRITE_JPEG_QUALITY, 25])
                                 if ret:
                                     yield (b'--frame\r\n'
                                            b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
