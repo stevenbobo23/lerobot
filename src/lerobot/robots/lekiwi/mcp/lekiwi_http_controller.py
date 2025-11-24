@@ -828,11 +828,11 @@ if __name__ == "__main__":
         default=STREAM_URL,
         help="RTMP 推流地址"
     )
-    # parser.add_argument(
-    #     "--rotate-180",
-    #     action="store_true",
-    #     help="将推流画面旋转 180 度"
-    # )
+    parser.add_argument(
+        "--rotate-180",
+        action="store_true",
+        help="将推流画面旋转 180 度"
+    )
     parser.add_argument(
         "--tuiliu",
         action="store_true",
@@ -846,8 +846,13 @@ if __name__ == "__main__":
         STREAMING_ENABLED = True
     if args.stream_url:
         STREAM_URL = args.stream_url
-    if args.rotate_180 or args.tuiliu:
+    if args.rotate_180:
+        # 仅当显式指定 rotate-180 时才旋转
+        # 手腕摄像头通常是正向安装的，不需要旋转
         STREAM_ROTATE_180 = True
+    elif args.tuiliu:
+        # tuiliu 模式下，对于手腕摄像头默认不旋转
+        STREAM_ROTATE_180 = False
     
     print("=== LeKiwi HTTP 控制器 ===")
     print(f"机器人 ID: {args.robot_id}")
