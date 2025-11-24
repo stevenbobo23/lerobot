@@ -343,7 +343,7 @@ def setup_routes():
         response.set_cookie(
             SESSION_COOKIE_NAME,
             user_id,
-            max_age=SESSION_TIMEOUT_SECONDS,
+            max_age=24 * 3600,  # Cookie 有效期延长至 24 小时，控制权超时由服务器端逻辑处理
             httponly=True,
             samesite='Lax'
         )
@@ -375,7 +375,7 @@ def setup_routes():
         response.set_cookie(
             SESSION_COOKIE_NAME,
             user_id,
-            max_age=VIP_SESSION_TIMEOUT_SECONDS,
+            max_age=24 * 3600,  # Cookie 有效期延长至 24 小时
             httponly=True,
             samesite='Lax'
         )

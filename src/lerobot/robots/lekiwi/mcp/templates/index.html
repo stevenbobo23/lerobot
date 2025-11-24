@@ -28,9 +28,9 @@
     </script>
     <style>
         /* 极简滑块样式 */
-        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; }
         input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 14px; width: 14px; border-radius: 2px;
+            -webkit-appearance: none; appearance: none; height: 14px; width: 14px; border-radius: 2px;
             background: #38bdf8; cursor: pointer; margin-top: -5px;
             box-shadow: 0 0 5px rgba(56, 189, 248, 0.5);
         }
@@ -47,30 +47,30 @@
         <div class="flex items-center gap-3">
             <div class="w-2 h-8 bg-tech-500 rounded-sm shadow-[0_0_8px_rgba(14,165,233,0.6)]"></div>
             <div>
-                <h1 class="text-lg font-bold text-white tracking-wider leading-tight">摸鱼遥控车 <span class="text-tech-500">控制台</span></h1>
-                <div class="text-[10px] text-gray-500 font-mono uppercase tracking-[0.2em]">远程操作系统</div>
+                <h1 class="text-lg font-bold text-white tracking-wider leading-tight">摸鱼遥控车 <span class="text-tech-500">驾驶舱</span></h1>
+                <div class="text-[10px] text-gray-500 font-mono uppercase tracking-[0.2em]">REMOTE DRIVE SYS // ONLINE</div>
             </div>
         </div>
 
         <div class="flex items-center gap-6">
             <div class="flex items-center gap-2 text-xs font-mono text-gray-300 bg-gray-950/50 px-3 py-1.5 rounded border border-gray-800">
                 <span class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e]"></span>
-                <span class="text-tech-400 font-semibold">{{ username or '未知用户' }}</span>
+                <span class="text-tech-400 font-semibold">驾驶员: {{ username or '未知用户' }}</span>
             </div>
             
             <div id="status" class="flex items-center gap-2 text-xs font-mono text-gray-400 bg-gray-950/50 px-3 py-1.5 rounded border border-gray-800">
                 <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
-                状态: 检查中...
+                系统状态: 检测中...
             </div>
             
             <div id="session-timer" class="hidden flex items-center gap-2 border-l border-gray-700 pl-4">
-                <span class="text-[10px] text-gray-500 uppercase">剩余时间:</span>
+                <span class="text-[10px] text-gray-500 uppercase">剩余燃料:</span>
                 <span id="session-remaining" class="text-tech-400 font-mono font-bold text-lg">--:--</span>
             </div>
             
             <!-- 退出控制按钮 -->
-            <button onclick="exitControl()" class="px-4 py-2 text-sm font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg border border-red-500 transition-all shadow-lg hover:shadow-red-500/30 active:scale-95">
-                退出控制
+            <button onclick="exitControl()" class="px-4 py-2 text-sm font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg border border-red-500 transition-all shadow-lg hover:shadow-red-500/30 active:scale-95 flex items-center gap-2">
+                <span class="text-xs">⏏️</span> 紧急弹射
             </button>
         </div>
     </header>
@@ -117,7 +117,7 @@
             <div class="flex-none p-5 border-b border-gray-800/50">
                 <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
-                    移动控制
+                    底盘机动
                 </h3>
                 
                 <div class="grid grid-cols-3 gap-2 max-w-[260px] mx-auto">
@@ -164,11 +164,11 @@
                 <div class="flex justify-between items-end mb-4">
                     <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                        机械臂
+                        机械臂控制
                     </h3>
                     <div class="flex gap-2 items-center">
-                        <button onclick="resetArmToHome()" class="px-2 py-1 text-[10px] bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-gray-300 transition-colors">复位</button>
-                        <button onclick="getCurrentArmPosition()" class="px-2 py-1 text-[10px] bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-tech-400 transition-colors">同步</button>
+                        <button onclick="resetArmToHome()" class="px-2 py-1 text-[10px] bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-gray-300 transition-colors">归位</button>
+                        <button onclick="getCurrentArmPosition()" class="px-2 py-1 text-[10px] bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-tech-400 transition-colors">校准</button>
                     </div>
                 </div>
 
