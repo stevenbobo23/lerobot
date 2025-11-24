@@ -828,11 +828,11 @@ if __name__ == "__main__":
         default=STREAM_URL,
         help="RTMP 推流地址"
     )
-    parser.add_argument(
-        "--rotate-180",
-        action="store_true",
-        help="将推流画面旋转 180 度"
-    )
+    # parser.add_argument(
+    #     "--rotate-180",
+    #     action="store_true",
+    #     help="将推流画面旋转 180 度"
+    # )
     parser.add_argument(
         "--tuiliu",
         action="store_true",
