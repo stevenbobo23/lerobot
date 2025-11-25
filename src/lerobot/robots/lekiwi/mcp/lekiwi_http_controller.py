@@ -567,7 +567,7 @@ def setup_routes():
         if not _movement_enabled:
             return jsonify({
                 "success": False,
-                "message": "当前处于仅监控模式，请请求 /startmove 启用控制"
+                "message": "当前处于仅监控模式，找摸鱼管理员启用控制模式"
             })
 
         try:
