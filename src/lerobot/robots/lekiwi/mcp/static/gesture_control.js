@@ -53,7 +53,7 @@ async function initGestureControl() {
     videoElement.muted = true;
 
     hands = new Hands({locateFile: (file) => {
-        return `https://image.mycodebro.cn/js/mediapipe/${file}`;
+        return `https://image.mycodebro.cn/mediapipe/${file}`;
     }});
 
     hands.setOptions({
