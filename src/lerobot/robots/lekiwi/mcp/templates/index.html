@@ -6,10 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- MediaPipe Dependencies -->
-    <script src="https://image.mycodebro.cn/mediapipe/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://image.mycodebro.cn/mediapipe/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://image.mycodebro.cn/mediapipe/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://image.mycodebro.cn/mediapipe/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -163,10 +164,14 @@
             </div>
 
             <!-- 手势控制按钮 - 更显眼 -->
-            <div class="px-5 py-4 border-b border-gray-800/50">
-                <button id="gesture-toggle-btn" onclick="toggleGestureControl()" class="w-full py-4 px-6 text-base font-bold bg-gradient-to-r from-tech-500 to-tech-600 hover:from-tech-400 hover:to-tech-500 text-white border-2 border-tech-400 rounded-lg transition-all flex items-center justify-center gap-3 shadow-lg shadow-tech-500/30 hover:shadow-tech-500/50 active:scale-95 transform">
-                    <span class="text-2xl">✋</span>
-                    <span>试试手势控制</span>
+            <div class="px-5 py-4 border-b border-gray-800/50 flex gap-3">
+                <button id="gesture-toggle-btn" onclick="toggleGestureControl()" class="flex-1 py-4 px-2 text-sm font-bold bg-gradient-to-r from-tech-500 to-tech-600 hover:from-tech-400 hover:to-tech-500 text-white border-2 border-tech-400 rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-tech-500/30 hover:shadow-tech-500/50 active:scale-95 transform">
+                    <span class="text-xl">✋</span>
+                    <span>手势控制</span>
+                </button>
+                <button id="face-control-btn" onclick="toggleFaceControl()" class="flex-1 py-4 px-2 text-sm font-bold bg-gray-800 hover:bg-gray-700 text-gray-400 border-2 border-gray-700 rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-gray-500/30 active:scale-95 transform">
+                    <span class="text-xl">☺</span>
+                    <span>人脸控制</span>
                 </button>
             </div>
 
@@ -240,6 +245,7 @@
     </div>
 
     <script src="{{ url_for('static', filename='gesture_control.js') }}"></script>
+    <script src="{{ url_for('static', filename='face_control.js') }}"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

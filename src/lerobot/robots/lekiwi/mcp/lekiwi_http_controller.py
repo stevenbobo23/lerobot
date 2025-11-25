@@ -628,7 +628,7 @@ def setup_routes():
                                     
                                     yield (b'--frame\r\n'
                                            b'Content-Type: image/jpeg\r\n\r\n' + jpeg_bytes + b'\r\n')
-                                    
+                                
                                     last_frame_time = time.time()
                                 else:
                                     time.sleep(0.05)

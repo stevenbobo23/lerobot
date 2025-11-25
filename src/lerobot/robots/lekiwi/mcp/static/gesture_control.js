@@ -53,7 +53,7 @@ async function initGestureControl() {
     videoElement.muted = true;
 
     hands = new Hands({locateFile: (file) => {
-        return `https://image.mycodebro.cn/mediapipe/${file}`;
+        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
     }});
 
     hands.setOptions({
@@ -80,6 +80,13 @@ async function initGestureControl() {
 }
 
 async function toggleGestureControl() {
+    // 如果人脸控制开启中，先关闭它
+    if (typeof faceControlEnabled !== 'undefined' && faceControlEnabled) {
+        if (typeof toggleFaceControl === 'function') {
+            await toggleFaceControl();
+        }
+    }
+
     gestureControlEnabled = !gestureControlEnabled;
     const btn = document.getElementById('gesture-toggle-btn');
     const previewContainer = document.getElementById('gesture-preview-container');
@@ -176,6 +183,15 @@ async function toggleGestureControl() {
         }, 500); // 等待500ms让复位命令发送完成
     } else {
         console.log("关闭手势控制");
+        if (camera) {
+            // 尝试停止摄像头以释放资源
+            try {
+                await camera.stop();
+            } catch (e) {
+                console.error("停止摄像头失败:", e);
+            }
+        }
+        
         btn.classList.remove('bg-green-600', 'text-white', 'border-green-500');
         btn.classList.add('bg-gray-800', 'text-gray-400', 'border-gray-700');
         btn.innerHTML = '<span>✋</span> 手势';

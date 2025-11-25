@@ -19,7 +19,11 @@ function updateStatus() {
         });
 }
 
-function sendCommand(command) {
+// 错误提醒控制变量
+let lastErrorAlertTime = 0;
+const ERROR_ALERT_INTERVAL = 50000; // 5秒内只弹一次窗
+
+function sendCommand(command, silent = false) {
     const requestBody = {command: command};
     
     fetch('/control', {
@@ -33,13 +37,25 @@ function sendCommand(command) {
     .then(data => {
         console.log('命令执行结果:', data);
         if (!data.success) {
-            alert('命令执行失败: ' + data.message);
+            if (!silent) {
+                const now = Date.now();
+                if (now - lastErrorAlertTime > ERROR_ALERT_INTERVAL) {
+                    alert('命令执行失败: ' + data.message);
+                    lastErrorAlertTime = now;
+                }
+            }
             showNotification('命令执行失败: ' + data.message, 'error');
         }
     })
     .catch(error => {
         console.error('发送命令失败:', error);
-        alert('发送命令失败: ' + error.message);
+        if (!silent) {
+            const now = Date.now();
+            if (now - lastErrorAlertTime > ERROR_ALERT_INTERVAL) {
+                alert('发送命令失败: ' + error.message);
+                lastErrorAlertTime = now;
+            }
+        }
         showNotification('发送命令失败: ' + error.message, 'error');
     });
 }
