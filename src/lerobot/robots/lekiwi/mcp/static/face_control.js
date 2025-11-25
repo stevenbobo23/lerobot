@@ -6,14 +6,33 @@ let faceCamera = null;
 let lastFaceSentTime = 0;
 const FACE_SEND_INTERVAL = 100; // 发送指令间隔 (ms)
 
+// 遮罩显示状态
+let isFaceMaskVisible = true;
+
 // 阈值设置
 const MOUTH_OPEN_THRESHOLD = 0.05; // 嘴巴张开阈值 (归一化后)
 
 // 位置控制阈值
-const CENTER_ZONE_WIDTH = 0.3; // 中间区域宽度 (0.35 - 0.65)
+const CENTER_ZONE_WIDTH = 0.14; // 中间区域宽度 (0.4 - 0.6)
 
 // 按键状态追踪
 let lastFaceKey = null;
+
+function toggleFaceMask() {
+    isFaceMaskVisible = !isFaceMaskVisible;
+    const btn = document.getElementById('toggle-mask-btn');
+    if (btn) {
+        btn.textContent = isFaceMaskVisible ? '🎭 隐藏遮罩' : '🎭 显示遮罩';
+        // 也可以改变按钮样式来反馈状态
+        if (isFaceMaskVisible) {
+             btn.classList.add('bg-gray-800/50');
+             btn.classList.remove('bg-red-900/50');
+        } else {
+             btn.classList.add('bg-red-900/50');
+             btn.classList.remove('bg-gray-800/50');
+        }
+    }
+}
 
 async function initFaceControl() {
     console.log("初始化人脸控制...");
@@ -80,6 +99,7 @@ async function toggleFaceControl() {
     const previewContainer = document.getElementById('gesture-preview-container'); // 复用容器
     const previewTitle = previewContainer.querySelector('span'); // 修改标题
     const videoElement = document.getElementById('gesture-video');
+    const maskBtn = document.getElementById('toggle-mask-btn');
     
     if (faceControlEnabled) {
         console.log("开启人脸控制");
@@ -88,6 +108,12 @@ async function toggleFaceControl() {
         btn.innerHTML = '<span class="text-2xl">☺</span> <span>正在控制</span>';
         
         if (previewTitle) previewTitle.textContent = 'FACE CONTROL';
+        
+        // 显示遮罩切换按钮
+        if (maskBtn) {
+            maskBtn.classList.remove('hidden');
+            maskBtn.textContent = isFaceMaskVisible ? '🎭 隐藏遮罩' : '🎭 显示遮罩';
+        }
 
         // 显示预览窗口
         previewContainer.classList.remove('hidden');
@@ -152,6 +178,11 @@ async function toggleFaceControl() {
             lastFaceKey = null;
         }
         
+        // 隐藏遮罩切换按钮
+        if (maskBtn) {
+            maskBtn.classList.add('hidden');
+        }
+        
         updateFaceButtonState(btn, false);
         if (previewTitle) previewTitle.textContent = 'Live Input';
         previewContainer.classList.add('hidden');
@@ -183,12 +214,12 @@ function onFaceResults(results, canvasCtx, canvasElement) {
     if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
         const landmarks = results.multiFaceLandmarks[0];
         
-        // 绘制网格
-        drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {color: '#C0C0C070', lineWidth: 1});
-        drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, {color: '#FF3030', lineWidth: 2});
-        drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#30FF30', lineWidth: 2});
-        drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {color: '#E0E0E0', lineWidth: 2});
-        drawConnectors(canvasCtx, landmarks, FACEMESH_LIPS, {color: '#E0E0E0', lineWidth: 2});
+        // 绘制网格 (如果开启)
+        if (isFaceMaskVisible) {
+            // 只绘制必要的轮廓
+            drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {color: '#E0E0E0', lineWidth: 2});
+            drawConnectors(canvasCtx, landmarks, FACEMESH_LIPS, {color: '#E0E0E0', lineWidth: 2});
+        }
 
         processFaceControl(landmarks);
     }

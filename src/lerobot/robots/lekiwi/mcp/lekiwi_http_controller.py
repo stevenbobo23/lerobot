@@ -60,6 +60,9 @@ _stream_thread = None
 _stream_running = False
 _stream_lock = threading.Lock()
 
+# 运动控制开关，默认关闭（监控模式）
+_movement_enabled = False
+
 
 def convert_webrtc_to_rtmp(webrtc_url):
     """将 WebRTC URL 转换为 RTMP URL"""
@@ -523,11 +526,50 @@ def setup_routes():
     @app.route('/status', methods=['GET'])
     def get_status():
         """获取机器人状态"""
-        return jsonify(service.get_status())
+        status = service.get_status()
+        # 添加运动控制状态
+        status['movement_enabled'] = _movement_enabled
+        return jsonify(status)
+
+    @app.route('/startmove', methods=['GET', 'POST'])
+    def start_move():
+        """开启运动控制"""
+        global _movement_enabled
+        _movement_enabled = True
+        logger.info("收到 /startmove 请求，已启用运动控制")
+        return jsonify({
+            "success": True,
+            "message": "运动控制已启用"
+        })
+
+    @app.route('/stopmove', methods=['GET', 'POST'])
+    def stop_move():
+        """关闭运动控制"""
+        global _movement_enabled
+        _movement_enabled = False
+        # 尝试停止机器人
+        try:
+            service.stop_robot()
+        except:
+            pass
+        logger.info("收到 /stopmove 请求，已禁用运动控制")
+        return jsonify({
+            "success": True,
+            "message": "运动控制已禁用"
+        })
 
     @app.route('/control', methods=['POST'])
     def control_robot():
         """控制机器人移动"""
+        global _movement_enabled
+        
+        # 检查运动控制是否启用
+        if not _movement_enabled:
+            return jsonify({
+                "success": False,
+                "message": "当前处于仅监控模式，请请求 /startmove 启用控制"
+            })
+
         try:
             data = request.get_json()
             if not data:

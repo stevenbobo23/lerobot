@@ -318,6 +318,10 @@ function makeDraggable(element, handle) {
 
     function dragMouseDown(e) {
         e = e || window.event;
+        // 如果点击的是按钮或其子元素，不进行拖拽
+        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a')) {
+            return;
+        }
         e.preventDefault();
         // 获取鼠标光标启动位置:
         pos3 = e.clientX;

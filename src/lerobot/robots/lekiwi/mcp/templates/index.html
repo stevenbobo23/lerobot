@@ -238,7 +238,11 @@
     <div id="gesture-preview-container" class="hidden fixed bottom-6 right-6 z-40 bg-gray-900/90 backdrop-blur border border-gray-700 rounded-lg shadow-2xl overflow-hidden w-80 h-60 min-w-[200px] min-h-[150px]" style="resize: both;">
         <div id="gesture-drag-handle" class="absolute top-0 left-0 w-full h-8 z-10 flex items-center gap-2 bg-gradient-to-b from-black/80 to-transparent px-3 cursor-move select-none">
             <div class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
-            <span class="text-[10px] text-white font-mono uppercase tracking-wider shadow-black drop-shadow-md">Live Input</span>
+            <span class="text-[10px] text-white font-mono uppercase tracking-wider shadow-black drop-shadow-md flex-1">Live Input</span>
+            <!-- 遮罩切换按钮 -->
+            <button id="toggle-mask-btn" class="hidden pointer-events-auto px-2 py-0.5 text-[10px] bg-gray-800/50 hover:bg-gray-700 border border-white/20 rounded text-white transition-colors z-50" onclick="toggleFaceMask()">
+                🎭 隐藏遮罩
+            </button>
         </div>
         <video id="gesture-video" class="hidden w-full h-full object-cover transform -scale-x-100 pointer-events-none" autoplay playsinline muted></video>
         <canvas id="gesture-canvas" width="320" height="240" class="w-full h-full object-cover transform -scale-x-100 pointer-events-none"></canvas>
