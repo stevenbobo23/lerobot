@@ -42,6 +42,9 @@ class LeKiwiServiceConfig:
     angular_speed: float = 30.0  # 角速度 deg/s
     # 机械臂舵机速度配置 (0.0-1.0，相对于最大速度的百分比)
     arm_servo_speed: float = 0.2  # 舵机速度，降低到20%
+    # 机械臂扭矩限制 (0-1000，默认1000)
+    # 限制扭矩可以防止堵转时电流过大导致树莓派掉电重启
+    arm_torque_limit: int = 600 
     # 安全配置
     command_timeout_s: float = 6.0  # 命令超时时间，增加到6秒（原3秒的2倍）
     max_loop_freq_hz: int = 30  # 主循环频率
@@ -348,6 +351,9 @@ class LeKiwiService:
         max_acceleration = 50
         acceleration = max(5, int(max_acceleration * speed_ratio * 0.5))  # 加速度额处96折
         
+        # 获取配置的扭矩限制（如果没有配置则使用默认值600）
+        torque_limit = getattr(self.config, 'arm_torque_limit', 600)
+        
         arm_motors = [motor for motor in self.robot.bus.motors if motor.startswith("arm")]
         
         # 为每个机械臂舵机设置目标速度
@@ -362,10 +368,15 @@ class LeKiwiService:
                 # 设置更低的P系数以减少震动（默认是12）
                 self.robot.bus.write("P_Coefficient", motor, 8)
                 
+                # 设置扭矩限制，防止堵转时电流过大导致系统崩溃
+                # 这是一个非常重要的安全设置
+                self.robot.bus.write("Torque_Limit", motor, torque_limit)
+                
             except Exception as e:
-                self.logger.warning(f"设置舵机 {motor} 速度失败: {e}")
+                self.logger.warning(f"设置舵机 {motor} 速度/扭矩失败: {e}")
         
-        self.logger.info(f"机械臂舵机速度已设置为 {speed_ratio*100:.0f}%（Goal_Speed={goal_speed}, Goal_Acc={acceleration}, P_Coeff=8）")
+        self.logger.info(f"机械臂舵机配置已更新: 速度={speed_ratio*100:.0f}%, 扭矩限制={torque_limit}/1000")
+
     
     def _control_loop(self):
         """机器人控制主循环"""
