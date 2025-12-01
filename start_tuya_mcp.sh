@@ -14,8 +14,8 @@ cd "$SCRIPT_DIR"
 
 # 在后台启动 MCP 服务器（HTTP 模式）
 echo "Starting MCP HTTP server in background..."
-python src/lerobot/robots/lekiwi/mcp/lekiwi_mcp_server.py --transport http --port 8000 &
-
+# python src/lerobot/robots/lekiwi/mcp/lekiwi_mcp_server.py --transport http --port 8000 &
+python src/lerobot/robots/lekiwi/mcp/lekiwi_http_controller.py --mcp-mode http --mcp-port 8000
 # 保存 MCP 服务器的进程 ID
 MCP_PID=$!
 
