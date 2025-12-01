@@ -35,9 +35,11 @@ from flask import Flask, jsonify, request, render_template, Response, make_respo
 # 条件导入，支持直接运行和模块导入两种方式
 try:
     from .lekiwi_service import LeKiwiService, LeKiwiServiceConfig, set_global_service, create_default_service
+    from .lekiwi_mcp_server import mcp
 except ImportError:
     # 直接运行时的导入方式
     from lerobot.robots.lekiwi.mcp.lekiwi_service import LeKiwiService, LeKiwiServiceConfig, set_global_service, create_default_service
+    from lerobot.robots.lekiwi.mcp.lekiwi_mcp_server import mcp
 
 # 全局变量
 app = None
@@ -789,11 +791,12 @@ def setup_routes():
         })
 
 
-def run_server(host="0.0.0.0", port=8080, robot_id="my_awesome_kiwi"):
+def run_server(host="0.0.0.0", port=8080, robot_id="my_awesome_kiwi", mcp_mode=None, mcp_port=8000):
     """启动HTTP服务器"""
     global app, service, logger
     
     # 配置日志
+    # 如果是MCP stdio模式，日志输出到stderr (logging默认行为)
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     
@@ -832,13 +835,38 @@ def run_server(host="0.0.0.0", port=8080, robot_id="my_awesome_kiwi"):
     
     logger.info("使用浏览器访问控制界面，或通过API发送控制命令")
     
+    # 定义Flask运行函数
+    def run_flask():
+        try:
+            app.run(
+                host=host,
+                port=port,
+                debug=False,
+                threaded=True,
+                use_reloader=False
+            )
+        except Exception as e:
+            logger.error(f"HTTP服务启动失败: {e}")
+
     try:
-        app.run(
-            host=host,
-            port=port,
-            debug=False,
-            threaded=True
-        )
+        if mcp_mode:
+            # 在后台线程启动Flask
+            flask_thread = threading.Thread(target=run_flask, daemon=True)
+            flask_thread.start()
+            
+            # 在主线程运行MCP
+            logger.info(f"Starting MCP server in {mcp_mode} mode")
+            if mcp_mode == "http":
+                mcp.run(transport="http", host=host, port=mcp_port)
+            else:
+                # stdio mode
+                # FastMCP stdio transport uses stdout/stdin
+                # We must ensure no other output goes to stdout
+                mcp.run(transport="stdio")
+        else:
+            # 仅运行Flask（主线程）
+            run_flask()
+            
     except KeyboardInterrupt:
         logger.info("收到中断信号，正在关闭...")
     finally:
@@ -899,6 +927,19 @@ if __name__ == "__main__":
         action="store_true",
         help="一键开启推流（使用默认配置）"
     )
+    parser.add_argument(
+        "--mcp-mode",
+        type=str,
+        choices=['stdio', 'http'],
+        default=None,
+        help="启用MCP服务器模式：stdio或http"
+    )
+    parser.add_argument(
+        "--mcp-port",
+        type=int,
+        default=8000,
+        help="MCP服务器HTTP端口（仅在mcp-mode=http时有效）"
+    )
     
     args = parser.parse_args()
     
@@ -915,38 +956,51 @@ if __name__ == "__main__":
         # tuiliu 模式下，对于手腕摄像头默认不旋转
         STREAM_ROTATE_180 = False
     
-    print("=== LeKiwi HTTP 控制器 ===")
-    print(f"机器人 ID: {args.robot_id}")
-    print(f"服务地址: http://{args.host}:{args.port}")
-    print("功能特性:")
-    print("  - 网页控制界面")
-    print("  - REST API 接口")
-    print("  - 定时移动功能")
-    print("  - 键盘控制支持")
-    print("按 Ctrl+C 停止服务")
-    print("=========================")
+    # 如果不是stdio模式，才打印欢迎信息到stdout
+    # stdio模式下，stdout被用于MCP通信，不能打印杂乱信息
+    if args.mcp_mode != 'stdio':
+        print("=== LeKiwi HTTP 控制器 ===")
+        print(f"机器人 ID: {args.robot_id}")
+        print(f"服务地址: http://{args.host}:{args.port}")
+        if args.mcp_mode:
+             print(f"MCP 模式: {args.mcp_mode}")
+        print("功能特性:")
+        print("  - 网页控制界面")
+        print("  - REST API 接口")
+        print("  - 定时移动功能")
+        print("  - 键盘控制支持")
+        if args.mcp_mode:
+            print("  - MCP 服务支持")
+        print("按 Ctrl+C 停止服务")
+        print("=========================")
     
     try:
         # 直接启动服务
-        run_server(args.host, args.port, args.robot_id)
+        run_server(args.host, args.port, args.robot_id, args.mcp_mode, args.mcp_port)
         
     except KeyboardInterrupt:
-        print("\n收到键盘中断，正在关闭服务...")
+        if args.mcp_mode != 'stdio':
+            print("\n收到键盘中断，正在关闭服务...")
     except Exception as e:
-        error_msg = str(e)
-        print(f"\n启动失败: {error_msg}")
-        print("\n故障排除建议:")
-        
-        # 检查是否是缺少依赖的问题
-        if "scservo_sdk" in error_msg or "No module named" in error_msg:
-            print("⚠️  缺少必需的依赖包！")
-            print("   请运行以下命令安装 LeKiwi 所需的依赖：")
-            print("   pip install 'lerobot[lekiwi]'")
-            print("   或者：")
-            print("   pip install 'lerobot[feetech]'")
-            print("")
-        
-        print("1. 确保已激活 lerobot 环境")
-        print("2. 检查机器人硬件连接")
-        print("3. 确认端口未被占用")
-        print("4. 检查网络配置")
+        if args.mcp_mode == 'stdio':
+             # 在stdio模式下，错误应该输出到stderr
+             import sys
+             sys.stderr.write(f"启动失败: {e}\n")
+        else:
+            error_msg = str(e)
+            print(f"\n启动失败: {error_msg}")
+            print("\n故障排除建议:")
+            
+            # 检查是否是缺少依赖的问题
+            if "scservo_sdk" in error_msg or "No module named" in error_msg:
+                print("⚠️  缺少必需的依赖包！")
+                print("   请运行以下命令安装 LeKiwi 所需的依赖：")
+                print("   pip install 'lerobot[lekiwi]'")
+                print("   或者：")
+                print("   pip install 'lerobot[feetech]'")
+                print("")
+            
+            print("1. 确保已激活 lerobot 环境")
+            print("2. 检查机器人硬件连接")
+            print("3. 确认端口未被占用")
+            print("4. 检查网络配置")
