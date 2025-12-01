@@ -20,7 +20,8 @@ mkdir -p /home/bobo/logs
 # 在后台启动 MCP 服务器（HTTP 模式）
 echo "Starting MCP HTTP server in background..."
 # python src/lerobot/robots/lekiwi/mcp/lekiwi_mcp_server.py --transport http --port 8000 > /home/bobo/logs/lekiwi_mcp_server.log 2>&1 &
-python src/lerobot/robots/lekiwi/mcp/lekiwi_http_controller.py --mcp-mode http --mcp-port 8000 > /home/bobo/logs/lekiwi_mcp_server.log 2>&1 &
+echo "--- Starting new session $(date) ---" >> /home/bobo/logs/lekiwi_mcp_server.log
+python src/lerobot/robots/lekiwi/mcp/lekiwi_http_controller.py --mcp-mode http --mcp-port 8000 >> /home/bobo/logs/lekiwi_mcp_server.log 2>&1 &
 
 # 保存 MCP 服务器的进程 ID
 MCP_PID=$!
@@ -99,7 +100,8 @@ fi
 # 运行 Tuya MCP SDK 快速启动示例（作为后台子进程）
 echo "Starting Tuya MCP SDK quick start example in background..."
 cd /home/bobo/tuya-mcp-sdk
-python mcp-python/examples/quick_start.py > /home/bobo/logs/tuya_quick_start.log 2>&1 &
+echo "--- Starting new session $(date) ---" >> /home/bobo/logs/tuya_quick_start.log
+python mcp-python/examples/quick_start.py >> /home/bobo/logs/tuya_quick_start.log 2>&1 &
 
 # 保存 Tuya 快速启动示例的进程 ID
 TUYYA_PID=$!
@@ -117,7 +119,8 @@ echo "MCP_ENDPOINT exported: $MCP_ENDPOINT"
 # 启动 MCP 管道服务（作为后台子进程）
 echo "Starting MCP pipe service in background..."
 cd src/lerobot/robots/lekiwi/mcp/
-python lekiwi_mcp_pipe.py > /home/bobo/logs/lekiwi_mcp_pipe.log 2>&1 &
+echo "--- Starting new session $(date) ---" >> /home/bobo/logs/lekiwi_mcp_pipe.log
+python lekiwi_mcp_pipe.py >> /home/bobo/logs/lekiwi_mcp_pipe.log 2>&1 &
 
 # 保存 MCP 管道服务的进程 ID
 PIPE_PID=$!
