@@ -62,7 +62,7 @@ async function initFaceControl() {
     videoElement.muted = true;
 
     faceMesh = new FaceMesh({locateFile: (file) => {
-        return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+        return `https://image.mycodebro.cn/mediapipe/${file}`;
     }});
 
     faceMesh.setOptions({
