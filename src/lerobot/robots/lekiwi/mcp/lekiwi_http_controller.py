@@ -189,13 +189,15 @@ def start_streaming():
                 logger.info(f"启用音频推流，设备: {final_audio_device}")
                 audio_input_args = [
                     '-f', 'alsa',
-                    '-ac', '1',
-                    '-ar', '48000',
+                    '-channels', '1',  # 使用 -channels 替代 -ac (alsa输入选项)
+                    '-sample_rate', '48000', # 使用 -sample_rate 替代 -ar (alsa输入选项)
                     '-i', final_audio_device
                 ]
                 audio_codec_args = [
                     '-c:a', 'aac',
-                    '-b:a', '64k'
+                    '-b:a', '64k',
+                    '-ac', '1', # 输出声道数
+                    '-ar', '44100' # 输出采样率，通常RTMP/FLV推荐44.1k
                 ]
 
             # 构建 ffmpeg 命令
