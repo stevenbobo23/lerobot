@@ -62,6 +62,10 @@ _stream_thread = None
 _stream_running = False
 _stream_lock = threading.Lock()
 
+# 音频配置
+AUDIO_DEVICE = "hw:1,0"
+NO_AUDIO = False
+
 # 运动控制开关，默认关闭（监控模式）
 _movement_enabled = False
 
@@ -98,11 +102,57 @@ def start_streaming():
         
         _stream_running = True
     
+    def find_audio_device_by_name(device_name_part):
+        """通过读取 /proc/asound/cards 查找 ALSA 音频设备，返回 hw:X,Y 格式"""
+        try:
+            # 读取 ALSA cards 文件
+            # 文件格式通常如:
+            #  0 [PCH            ]: HDA-Intel - HDA Intel PCH
+            #                       HDA Intel PCH at 0xf7230000 irq 31
+            #  3 [MCP01          ]: USB-Audio - MCP01
+            #                       MCP01 at usb-0000:00:14.0-2, full speed
+            with open('/proc/asound/cards', 'r') as f:
+                content = f.read()
+                
+            # 简单的解析逻辑
+            lines = content.splitlines()
+            for i, line in enumerate(lines):
+                # 查找包含名称的行，且该行通常以数字开头（卡号）
+                if device_name_part in line:
+                    # 尝试提取卡号
+                    parts = line.split('[')
+                    if len(parts) > 1:
+                        card_num_str = parts[0].strip()
+                        if card_num_str.isdigit():
+                            card_num = int(card_num_str)
+                            # 默认使用设备 0 (hw:X,0)
+                            # 大多数 USB 麦克风只有一个设备 0
+                            return f"hw:{card_num},0"
+                            
+        except Exception as e:
+            if logger:
+                logger.warning(f"查找音频设备失败: {e}")
+            return None
+        return None
+
+
     def stream_worker():
         """推流工作线程"""
-        global _stream_process, _stream_running, service, logger, STREAM_ROTATE_180
+        global _stream_process, _stream_running, service, logger, STREAM_ROTATE_180, AUDIO_DEVICE, NO_AUDIO
         
         try:
+            # 尝试自动查找音频设备（如果 AUDIO_DEVICE 不是 hw: 开头，则视为名称）
+            final_audio_device = AUDIO_DEVICE
+            if not NO_AUDIO and not AUDIO_DEVICE.startswith("hw:"):
+                 logger.info(f"正在按名称查找音频设备: {AUDIO_DEVICE}...")
+                 found_device = find_audio_device_by_name(AUDIO_DEVICE)
+                 if found_device:
+                     logger.info(f"自动发现音频设备 {AUDIO_DEVICE} -> {found_device}")
+                     final_audio_device = found_device
+                 else:
+                     logger.warning(f"未找到名称包含 '{AUDIO_DEVICE}' 的音频设备，将尝试使用默认 hw:3,0")
+                     final_audio_device = "hw:3,0"
+
             # 将 WebRTC URL 转换为 RTMP
             rtmp_url = convert_webrtc_to_rtmp(STREAM_URL)
             logger.info(f"开始推流到: {rtmp_url}")
@@ -132,6 +182,22 @@ def start_streaming():
             else:
                 height, width = test_frame.shape[:2]
             
+            # 准备音频参数
+            audio_input_args = []
+            audio_codec_args = []
+            if not NO_AUDIO:
+                logger.info(f"启用音频推流，设备: {final_audio_device}")
+                audio_input_args = [
+                    '-f', 'alsa',
+                    '-ac', '1',
+                    '-ar', '48000',
+                    '-i', final_audio_device
+                ]
+                audio_codec_args = [
+                    '-c:a', 'aac',
+                    '-b:a', '64k'
+                ]
+
             # 构建 ffmpeg 命令
             # 使用 rawvideo 输入，从 stdin 读取帧数据
             # 参考用户提供的低CPU占用参数进行调整
@@ -143,6 +209,7 @@ def start_streaming():
                 '-pix_fmt', 'rgb24',  # 使用 RGB 格式
                 '-r', '10',  # 降低帧率到 10fps
                 '-i', '-',  # 从 stdin 读取
+            ] + audio_input_args + [
                 '-c:v', 'libx264',
                 '-preset', 'ultrafast',
                 '-tune', 'zerolatency',
@@ -152,6 +219,7 @@ def start_streaming():
                 '-bufsize', '600k',
                 '-g', '20',  # GOP 大小调整为 20 (2秒一个关键帧)
                 '-threads', '1',  # 限制线程数
+            ] + audio_codec_args + [
                 '-f', 'flv',
                 rtmp_url
             ]
@@ -940,6 +1008,17 @@ if __name__ == "__main__":
         default=8000,
         help="MCP服务器HTTP端口（仅在mcp-mode=http时有效）"
     )
+    parser.add_argument(
+        "--audio-device",
+        type=str,
+        default="MCP01",
+        help="推流音频输入设备名称或ID (默认: MCP01, 会自动查找 hw:X,Y)"
+    )
+    parser.add_argument(
+        "--no-audio",
+        action="store_true",
+        help="禁用推流音频"
+    )
     
     args = parser.parse_args()
     
@@ -955,6 +1034,10 @@ if __name__ == "__main__":
     elif args.tuiliu:
         # tuiliu 模式下，对于手腕摄像头默认不旋转
         STREAM_ROTATE_180 = False
+        
+    # 应用音频配置
+    AUDIO_DEVICE = args.audio_device
+    NO_AUDIO = args.no_audio
     
     # 如果不是stdio模式，才打印欢迎信息到stdout
     # stdio模式下，stdout被用于MCP通信，不能打印杂乱信息
