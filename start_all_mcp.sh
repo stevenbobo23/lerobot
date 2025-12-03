@@ -21,7 +21,7 @@ mkdir -p /home/bobo/logs
 echo "Starting MCP HTTP server in background..."
 # python src/lerobot/robots/lekiwi/mcp/lekiwi_mcp_server.py --transport http --port 8000 > /home/bobo/logs/lekiwi_mcp_server.log 2>&1 &
 echo "--- Starting new session $(date) ---" >> /home/bobo/logs/lekiwi_mcp_server.log
-python src/lerobot/robots/lekiwi/mcp/lekiwi_http_controller.py --mcp-mode http --mcp-port 8000 >> /home/bobo/logs/lekiwi_mcp_server.log 2>&1 &
+python src/lerobot/robots/lekiwi/mcp/lekiwi_http_controller.py --tuiliu --mcp-mode http --mcp-port 8000 >> /home/bobo/logs/lekiwi_mcp_server.log 2>&1 &
 
 # 保存 MCP 服务器的进程 ID
 MCP_PID=$!
