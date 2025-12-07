@@ -22,7 +22,6 @@ from dataclasses import dataclass, field
 
 import cv2
 import draccus
-import draccus
 import zmq
 
 from .config_lekiwi import LeKiwiConfig, LeKiwiHostConfig
@@ -100,28 +99,19 @@ def main(cfg: LeKiwiServerConfig):
 
             last_observation = robot.get_observation()
 
-            logging.info("Got observation keys: %s", list(last_observation.keys()))
-
             # Encode ndarrays to base64 strings
             for cam_key, _ in robot.cameras.items():
-                frame = last_observation.get(cam_key)
-                shape = getattr(frame, "shape", None)
-                logging.info("Cam %s frame type=%s shape=%s", cam_key, type(frame).__name__, shape)
-
-                ret, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+                ret, buffer = cv2.imencode(
+                    ".jpg", last_observation[cam_key], [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+                )
                 if ret:
-                    b64 = base64.b64encode(buffer).decode("utf-8")
-                    last_observation[cam_key] = b64
-                    logging.info("Cam %s encoded: jpeg_bytes=%d b64_len=%d", cam_key, int(buffer.size), len(b64))
+                    last_observation[cam_key] = base64.b64encode(buffer).decode("utf-8")
                 else:
                     last_observation[cam_key] = ""
-                    logging.warning("Cam %s encoding failed; setting empty string", cam_key)
 
             # Send the observation to the remote agent
             try:
-                payload = json.dumps(last_observation)
-                logging.info("Sending observation: keys=%s payload_len=%d", list(last_observation.keys()), len(payload))
-                host.zmq_observation_socket.send_string(payload, flags=zmq.NOBLOCK)
+                host.zmq_observation_socket.send_string(json.dumps(last_observation), flags=zmq.NOBLOCK)
             except zmq.Again:
                 logging.info("Dropping observation, no client connected")
 
@@ -144,4 +134,3 @@ def main(cfg: LeKiwiServerConfig):
 
 if __name__ == "__main__":
     main()
-
