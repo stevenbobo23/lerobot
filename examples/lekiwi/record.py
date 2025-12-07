@@ -29,7 +29,7 @@ from lerobot.utils.visualization_utils import init_rerun
 
 NUM_EPISODES = 2
 FPS = 30
-EPISODE_TIME_SEC = 30
+EPISODE_TIME_SEC = 120
 RESET_TIME_SEC = 10
 TASK_DESCRIPTION = "My task description"
 HF_REPO_ID = "<hf_username>/<dataset_repo_id>"
@@ -37,7 +37,7 @@ HF_REPO_ID = "<hf_username>/<dataset_repo_id>"
 
 def main():
     # Create the robot and teleoperator configurations
-    robot_config = LeKiwiClientConfig(remote_ip="172.18.134.136", id="lekiwi")
+    robot_config = LeKiwiClientConfig(remote_ip="192.168.0.184", id="lekiwi")
     leader_arm_config = SO100LeaderConfig(port="/dev/tty.usbmodem585A0077581", id="my_awesome_leader_arm")
     keyboard_config = KeyboardTeleopConfig()
 
@@ -134,7 +134,7 @@ def main():
     listener.stop()
 
     dataset.finalize()
-    dataset.push_to_hub()
+    # dataset.push_to_hub()
 
 
 if __name__ == "__main__":

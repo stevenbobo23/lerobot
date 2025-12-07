@@ -1,0 +1,588 @@
+#!/usr/bin/env python
+
+# Copyright 2024 The HuggingFace Inc. team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import logging
+import os
+import platform
+import re
+import threading
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, Any, Optional
+
+import numpy as np
+
+from ..config_lekiwi import LeKiwiConfig
+from ..lekiwi import LeKiwi
+from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig
+from lerobot.cameras.configs import Cv2Rotation
+
+
+
+@dataclass
+class LeKiwiServiceConfig:
+    """LeKiwi服务配置"""
+    robot: LeKiwiConfig
+    # 移动速度配置 (m/s 和 deg/s)
+    linear_speed: float = 0.2  # 线性速度 m/s
+    angular_speed: float = 30.0  # 角速度 deg/s
+    # 机械臂舵机速度配置 (0.0-1.0，相对于最大速度的百分比)
+    arm_servo_speed: float = 0.2  # 舵机速度，降低到20%
+    # 机械臂扭矩限制 (0-1000，默认1000)
+    # 限制扭矩可以防止堵转时电流过大导致树莓派掉电重启
+    arm_torque_limit: int = 600 
+    # 安全配置
+    command_timeout_s: float = 6.0  # 命令超时时间，增加到6秒（原3秒的2倍）
+    max_loop_freq_hz: int = 30  # 主循环频率
+
+
+class LeKiwiService:
+    """LeKiwi机器人控制服务
+    
+    提供统一的机器人控制接口，可被HTTP控制器、MCP服务等复用
+    """
+    
+    def __init__(self, config: LeKiwiServiceConfig):
+        self.config = config
+        self.robot = LeKiwi(config.robot)
+        
+        # 运行状态
+        self.running = False
+        self.last_command_time = 0
+        self.current_action = {
+            "x.vel": 0.0,
+            "y.vel": 0.0,
+            "theta.vel": 0.0,
+            # 机械臂保持当前位置（这些值会在连接时从实际位置读取）
+            "arm_shoulder_pan.pos": 0,
+            "arm_shoulder_lift.pos": 0,
+            "arm_elbow_flex.pos": 0,
+            "arm_wrist_flex.pos": 0,
+            "arm_wrist_roll.pos": 0,
+            "arm_gripper.pos": 0,
+        }
+        self.control_thread = None
+        self._lock = threading.Lock()  # 线程安全
+        
+        # 配置日志
+        self.logger = logging.getLogger(__name__)
+    
+    def connect(self) -> bool:
+        """连接机器人"""
+        try:
+            if self.robot.is_connected:
+                self.logger.info("机器人已经连接")
+                return True
+            
+            self.logger.info("正在连接机器人...")
+            self.robot.connect()
+            
+            # 读取当前机械臂位置
+            current_state = self.robot.get_observation()
+            with self._lock:
+                for key in self.current_action:
+                    if key.endswith('.pos') and key in current_state:
+                        self.current_action[key] = current_state[key]
+            
+            # 启动控制循环
+            if not self.running:
+                self.running = True
+                self.control_thread = threading.Thread(target=self._control_loop, daemon=True)
+                self.control_thread.start()
+            
+            self.logger.info("✓ 机器人连接成功")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"机器人连接失败: {e}")
+            return False
+    
+    def disconnect(self):
+        """断开机器人连接"""
+        try:
+            self.running = False
+            if self.robot.is_connected:
+                self.robot.disconnect()
+            
+            self.logger.info("机器人断开连接成功")
+            
+        except Exception as e:
+            self.logger.error(f"断开机器人连接失败: {e}")
+    
+    def is_connected(self) -> bool:
+        """检查机器人是否连接"""
+        return self.robot.is_connected
+    
+    def get_status(self) -> Dict[str, Any]:
+        """获取机器人状态"""
+        try:
+            with self._lock:
+                return {
+                    "success": True,
+                    "connected": self.robot.is_connected,
+                    "running": self.running,
+                    "current_action": self.current_action.copy(),
+                    "last_command_time": self.last_command_time
+                }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": str(e),
+                "connected": False,
+                "running": self.running
+            }
+    
+    def execute_predefined_command(self, command: str) -> Dict[str, Any]:
+        """执行预定义的移动命令"""
+        if not self.robot.is_connected:
+            return {
+                "success": False,
+                "message": "机器人未连接，请检查硬件连接后重启服务"
+            }
+        
+        try:
+            with self._lock:
+                # 重置所有移动速度
+                self.current_action.update({
+                    "x.vel": 0.0,
+                    "y.vel": 0.0,
+                    "theta.vel": 0.0
+                })
+
+                # 根据命令设置对应的速度
+                if command == "forward":
+                    self.current_action["x.vel"] = self.config.linear_speed
+                elif command == "backward":
+                    self.current_action["x.vel"] = -self.config.linear_speed
+                elif command == "left":
+                    self.current_action["y.vel"] = self.config.linear_speed
+                elif command == "right":
+                    self.current_action["y.vel"] = -self.config.linear_speed
+                elif command == "rotate_left":
+                    self.current_action["theta.vel"] = self.config.angular_speed
+                elif command == "rotate_right":
+                    self.current_action["theta.vel"] = -self.config.angular_speed
+                elif command == "stop":
+                    # 所有速度已经设为0，无需额外操作
+                    pass
+                else:
+                    self.logger.warning(f"未知命令: {command}")
+                    return {
+                        "success": False,
+                        "message": f"未知命令: {command}"
+                    }
+
+                self.last_command_time = time.time()
+            
+            return {
+                "success": True,
+                "message": f"执行命令: {command}",
+                "current_action": self.current_action.copy()
+            }
+
+        except Exception as e:
+            self.logger.error(f"执行命令失败: {e}")
+            return {
+                "success": False,
+                "message": str(e)
+            }
+    
+    def execute_custom_velocity(self, x_vel: float, y_vel: float, theta_vel: float) -> Dict[str, Any]:
+        """执行自定义速度命令"""
+        if not self.robot.is_connected:
+            return {
+                "success": False,
+                "message": "机器人未连接，请检查硬件连接后重启服务"
+            }
+        
+        try:
+            with self._lock:
+                self.current_action.update({
+                    "x.vel": x_vel,
+                    "y.vel": y_vel,
+                    "theta.vel": theta_vel
+                })
+                self.last_command_time = time.time()
+            
+            return {
+                "success": True,
+                "message": "自定义速度命令已设置",
+                "current_action": self.current_action.copy()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"设置自定义速度失败: {e}")
+            return {
+                "success": False,
+                "message": str(e)
+            }
+    
+    def move_robot_for_duration(self, command: str, duration: float) -> Dict[str, Any]:
+        """移动机器人指定时间"""
+        # 先执行移动命令
+        result = self.execute_predefined_command(command)
+        if not result["success"]:
+            return result
+        
+        # 如果不是停止命令且指定了持续时间，则在指定时间后停止
+        if command != "stop" and duration > 0:
+            def stop_after_duration():
+                # 在持续时间内持续更新last_command_time以防止超时停止
+                end_time = time.time() + duration
+                while time.time() < end_time:
+                    with self._lock:
+                        self.last_command_time = time.time()
+                    time.sleep(0.1)  # 每100ms更新一次
+                
+                # 时间到达，执行停止命令
+                self.execute_predefined_command("stop")
+            
+            stop_thread = threading.Thread(target=stop_after_duration, daemon=True)
+            stop_thread.start()
+        
+        return {
+            "success": True,
+            "command": command,
+            "duration": duration,
+            "message": f"机器人{command}移动{duration}秒"
+        }
+    
+    def move_robot_with_custom_speed_for_duration(self, x_vel: float, y_vel: float, 
+                                                 theta_vel: float, duration: float) -> Dict[str, Any]:
+        """使用自定义速度移动机器人指定时间"""
+        # 先设置自定义速度
+        result = self.execute_custom_velocity(x_vel, y_vel, theta_vel)
+        if not result["success"]:
+            return result
+        
+        # 如果指定了持续时间，则在指定时间后停止
+        if duration > 0:
+            def stop_after_duration():
+                # 在持续时间内持续更新last_command_time以防止超时停止
+                end_time = time.time() + duration
+                while time.time() < end_time:
+                    with self._lock:
+                        self.last_command_time = time.time()
+                    time.sleep(0.1)  # 每100ms更新一次
+                
+                # 时间到达，执行停止命令
+                self.execute_predefined_command("stop")
+            
+            stop_thread = threading.Thread(target=stop_after_duration, daemon=True)
+            stop_thread.start()
+        
+        return {
+            "success": True,
+            "x_vel": x_vel,
+            "y_vel": y_vel,
+            "theta_vel": theta_vel,
+            "duration": duration,
+            "message": f"机器人自定义速度移动{duration}秒"
+        }
+    
+    def set_arm_position(self, arm_positions: Dict[str, float]) -> Dict[str, Any]:
+        """设置机械臂位置"""
+        if not self.robot.is_connected:
+            return {
+                "success": False,
+                "message": "机器人未连接，请检查硬件连接后重启服务"
+            }
+        
+        try:
+            # 先设置舵机速度（只在首次或速度改变时设置）
+            if hasattr(self, '_arm_speed_configured') and self._arm_speed_configured == self.config.arm_servo_speed:
+                pass  # 速度已经配置，无需重复设置
+            else:
+                self._configure_arm_servo_speed(self.config.arm_servo_speed)
+                self._arm_speed_configured = self.config.arm_servo_speed
+            
+            with self._lock:
+                # 更新机械臂位置，保持移动速度不变
+                for joint, position in arm_positions.items():
+                    if joint in self.current_action:
+                        self.current_action[joint] = position
+                
+                self.last_command_time = time.time()
+            
+            return {
+                "success": True,
+                "message": f"机械臂位置已更新（舵机速度: {self.config.arm_servo_speed*100:.0f}%）",
+                "arm_positions": arm_positions,
+                "servo_speed_percent": self.config.arm_servo_speed * 100,
+                "current_action": self.current_action.copy()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"设置机械臂位置失败: {e}")
+            return {
+                "success": False,
+                "message": str(e)
+            }
+    
+    def _configure_arm_servo_speed(self, speed_ratio: float = 0.2):
+        """配置机械臂舵机速度
+        
+        Args:
+            speed_ratio: 速度比例 (0.0-1.0)，相对于最大速度的百分比
+        """
+        # 限制速度比例在合理范围内
+        speed_ratio = max(0.05, min(1.0, speed_ratio))
+        
+        # 计算速度值（STS3215最大速度为2400）
+        max_speed = 2400
+        goal_speed = int(max_speed * speed_ratio)
+        
+        # 计算加速度（更低的加速度以获得更平滑的运动）
+        # 使用更保守的加速度计算
+        max_acceleration = 50
+        acceleration = max(5, int(max_acceleration * speed_ratio * 0.5))  # 加速度额处96折
+        
+        # 获取配置的扭矩限制（如果没有配置则使用默认值600）
+        torque_limit = getattr(self.config, 'arm_torque_limit', 600)
+        
+        arm_motors = [motor for motor in self.robot.bus.motors if motor.startswith("arm")]
+        
+        # 为每个机械臂舵机设置目标速度
+        for motor in arm_motors:
+            try:
+                # 设置加速度（降低加速度以获得更平滑的运动）
+                self.robot.bus.write("Goal_Acc", motor, acceleration)
+                
+                # 设置目标速度
+                self.robot.bus.write("Goal_Speed", motor, goal_speed)
+                
+                # 设置更低的P系数以减少震动（默认是12）
+                self.robot.bus.write("P_Coefficient", motor, 8)
+                
+                # 设置扭矩限制，防止堵转时电流过大导致系统崩溃
+                # 这是一个非常重要的安全设置
+                self.robot.bus.write("Torque_Limit", motor, torque_limit)
+                
+            except Exception as e:
+                self.logger.warning(f"设置舵机 {motor} 速度/扭矩失败: {e}")
+        
+        self.logger.info(f"机械臂舵机配置已更新: 速度={speed_ratio*100:.0f}%, 扭矩限制={torque_limit}/1000")
+
+    
+    def _control_loop(self):
+        """机器人控制主循环"""
+        self.logger.info("机器人控制循环已启动")
+        
+        while self.running and self.robot.is_connected:
+            try:
+                loop_start_time = time.time()
+                
+                # 检查命令超时
+                if (time.time() - self.last_command_time) > self.config.command_timeout_s:
+                    # 停止移动
+                    with self._lock:
+                        self.current_action.update({
+                            "x.vel": 0.0,
+                            "y.vel": 0.0,
+                            "theta.vel": 0.0
+                        })
+
+                # 发送动作命令
+                with self._lock:
+                    action_to_send = self.current_action.copy()
+                
+                self.robot.send_action(action_to_send)
+                
+                # 控制循环频率
+                elapsed = time.time() - loop_start_time
+                sleep_time = max(1.0 / self.config.max_loop_freq_hz - elapsed, 0)
+                time.sleep(sleep_time)
+
+            except Exception as e:
+                self.logger.error(f"控制循环错误: {e}")
+                time.sleep(0.1)  # 错误时短暂休眠
+
+        self.logger.info("机器人控制循环已停止")
+
+
+# 全局服务实例
+_global_service: Optional[LeKiwiService] = None
+_service_lock = threading.Lock()
+
+
+def get_global_service() -> Optional[LeKiwiService]:
+    """获取全局服务实例"""
+    global _global_service
+    with _service_lock:
+        return _global_service
+
+
+def set_global_service(service: LeKiwiService):
+    """设置全局服务实例"""
+    global _global_service
+    with _service_lock:
+        _global_service = service
+
+
+def find_camera_by_name(camera_name: str) -> Optional[str]:
+    """根据设备名称查找摄像头设备路径
+    
+    通过读取 /sys/class/video4linux/ 目录下的设备信息文件来获取设备名称，
+    无需依赖命令行工具。
+    
+    Args:
+        camera_name: 摄像头设备名称，例如 "USB Camera" 或 "T1 Webcam"
+        
+    Returns:
+        设备路径，例如 "/dev/video3"，如果未找到则返回 None
+    """
+    if platform.system() != "Linux":
+        # 非 Linux 系统暂不支持按名称查找
+        return None
+    
+    logger = logging.getLogger(__name__)
+    sys_video_path = Path("/sys/class/video4linux")
+    
+    if not sys_video_path.exists():
+        logger.warning("/sys/class/video4linux 目录不存在")
+        return None
+    
+    try:
+        # 遍历所有 video 设备
+        device_map = {}  # 存储设备名称到路径的映射
+        
+        for video_dir in sorted(sys_video_path.glob("video*")):
+            # 读取设备名称
+            name_file = video_dir / "name"
+            if not name_file.exists():
+                continue
+            
+            try:
+                with open(name_file, 'r') as f:
+                    device_name = f.read().strip()
+                
+                if not device_name:
+                    continue
+                
+                # 从目录名提取设备编号（例如 video3 -> 3）
+                video_num = video_dir.name.replace("video", "")
+                if not video_num.isdigit():
+                    continue
+                
+                device_path = f"/dev/video{video_num}"
+                
+                # 验证设备文件是否存在
+                if not Path(device_path).exists():
+                    continue
+                
+                # 将设备名称和路径添加到映射中
+                if device_name not in device_map:
+                    device_map[device_name] = []
+                device_map[device_name].append(device_path)
+                
+            except (IOError, OSError) as e:
+                logger.debug(f"读取设备 {video_dir.name} 信息失败: {e}")
+                continue
+        
+        # 查找匹配的设备名称
+        for device_name, paths in device_map.items():
+            if camera_name.lower() in device_name.lower():
+                if paths:
+                    # 返回第一个设备路径（通常是主要的）
+                    device_path = paths[0]
+                    logger.info(
+                        f"找到摄像头设备: {device_name} -> {device_path} (可用路径: {paths})"
+                    )
+                    return device_path
+        
+        # 如果没找到，列出所有可用的设备名称以便调试
+        available_names = list(device_map.keys())
+        logger.warning(
+            f"未找到名称为 '{camera_name}' 的摄像头设备。"
+            f"可用设备: {available_names}"
+        )
+        return None
+        
+    except Exception as e:
+        logger.error(f"查找摄像头设备时出错: {e}")
+        return None
+
+
+def create_default_service(robot_id: str = "my_awesome_kiwi") -> LeKiwiService:
+    """创建默认配置的服务实例
+    
+    支持通过设备名称或设备路径配置摄像头：
+    - 如果提供的是设备名称（如 "USB Camera" 或 "T1 Webcam"），会自动查找对应的设备路径
+    - 如果提供的是设备路径（如 "/dev/video0"），则直接使用
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # 摄像头配置：支持设备名称或设备路径
+    # 优先尝试通过设备名称查找，如果找不到则使用提供的路径
+    front_camera_name_or_path = "T1 Webcam"  # 前置摄像头名称
+    wrist_camera_name_or_path = "USB Camera"  # 手腕摄像头名称
+    
+    # 查找前置摄像头
+    front_path = find_camera_by_name(front_camera_name_or_path)
+    if front_path is None:
+        # 如果按名称找不到，尝试使用默认路径
+        front_path = "/dev/video0"
+        logger.warning(f"未找到设备名称 '{front_camera_name_or_path}'，使用默认路径: {front_path}")
+    else:
+        logger.info(f"前置摄像头: {front_camera_name_or_path} -> {front_path}")
+    
+    # 查找手腕摄像头
+    wrist_path = find_camera_by_name(wrist_camera_name_or_path)
+    if wrist_path is None:
+        # 如果按名称找不到，尝试使用默认路径
+        wrist_path = "/dev/video3"
+        logger.warning(f"未找到设备名称 '{wrist_camera_name_or_path}'，使用默认路径: {wrist_path}")
+    else:
+        logger.info(f"手腕摄像头: {wrist_camera_name_or_path} -> {wrist_path}")
+    
+    # 直接创建摄像头配置
+    cameras_config = {
+        "front": OpenCVCameraConfig(
+            index_or_path=front_path, 
+            fps=30, 
+            width=640, 
+            height=480, 
+            rotation=Cv2Rotation.NO_ROTATION  # 前置摄像头不旋转
+        ),
+        "wrist": OpenCVCameraConfig(
+            index_or_path=wrist_path, 
+            fps=30, 
+            width=640, 
+            height=480, 
+            rotation=Cv2Rotation.ROTATE_180  # 手腕摄像头旋转180度
+        )
+    }
+    
+    logger.info(f"创建服务，摄像头配置: {list(cameras_config.keys())}")
+    
+    robot_config = LeKiwiConfig(
+        id=robot_id,
+        cameras=cameras_config  # 显式传入摄像头配置
+    )
+    
+    logger.info(f"机器人配置创建完成，摄像头: {list(robot_config.cameras.keys())}")
+    
+    service_config = LeKiwiServiceConfig(
+        robot=robot_config,
+        linear_speed=0.2,
+        angular_speed=30.0,
+        arm_servo_speed=0.2,  # 舵机速度设置为20%
+        command_timeout_s=6,  # 增加到6秒（原3秒的2倍）
+        max_loop_freq_hz=30
+    )
+    return LeKiwiService(service_config)

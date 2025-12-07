@@ -49,7 +49,9 @@ class LeKiwi(Robot):
     name = "lekiwi"
 
     def __init__(self, config: LeKiwiConfig):
+        logger.info(f"Initializing LeKiwi robot with config: {config}")
         super().__init__(config)
+        
         self.config = config
         norm_mode_body = MotorNormMode.DEGREES if config.use_degrees else MotorNormMode.RANGE_M100_100
         self.bus = FeetechMotorsBus(
@@ -71,7 +73,10 @@ class LeKiwi(Robot):
         )
         self.arm_motors = [motor for motor in self.bus.motors if motor.startswith("arm")]
         self.base_motors = [motor for motor in self.bus.motors if motor.startswith("base")]
+        logger.info(f"Initializing cameras with config: {config.cameras}")
+        logger.info(f"Camera config keys: {list(config.cameras.keys()) if config.cameras else 'No cameras configured'}")
         self.cameras = make_cameras_from_configs(config.cameras)
+        logger.info(f"Cameras created: {list(self.cameras.keys()) if self.cameras else 'No cameras created'}")
 
     @property
     def _state_ft(self) -> dict[str, type]:
@@ -109,6 +114,8 @@ class LeKiwi(Robot):
         return self.bus.is_connected and all(cam.is_connected for cam in self.cameras.values())
 
     def connect(self, calibrate: bool = True) -> None:
+        logger.info(f"Starting connection process for {self}")
+
         if self.is_connected:
             raise DeviceAlreadyConnectedError(f"{self} already connected")
 
@@ -119,8 +126,10 @@ class LeKiwi(Robot):
             )
             self.calibrate()
 
+        logger.info(f"Connecting cameras: {list(self.cameras.keys())}")
         for cam in self.cameras.values():
             cam.connect()
+        logger.info(f"All cameras connected successfully")
 
         self.configure()
         logger.info(f"{self} connected.")
@@ -152,6 +161,7 @@ class LeKiwi(Robot):
 
         homing_offsets.update(dict.fromkeys(self.base_motors, 0))
 
+        # Only wheels are considered full turn motors, wrist_roll should be calibrated
         full_turn_motor = [
             motor for motor in motors if any(keyword in motor for keyword in ["wheel", "wrist_roll"])
         ]
@@ -189,10 +199,10 @@ class LeKiwi(Robot):
         for name in self.arm_motors:
             self.bus.write("Operating_Mode", name, OperatingMode.POSITION.value)
             # Set P_Coefficient to lower value to avoid shakiness (Default is 32)
-            self.bus.write("P_Coefficient", name, 16)
+            self.bus.write("P_Coefficient", name, 12)
             # Set I_Coefficient and D_Coefficient to default value 0 and 32
             self.bus.write("I_Coefficient", name, 0)
-            self.bus.write("D_Coefficient", name, 32)
+            self.bus.write("D_Coefficient", name, 0)
 
         for name in self.base_motors:
             self.bus.write("Operating_Mode", name, OperatingMode.VELOCITY.value)
