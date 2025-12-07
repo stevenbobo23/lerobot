@@ -16,7 +16,7 @@ RESET_TIME_SEC = 10
 TASK_DESCRIPTION = "My task description"
 
 # Create the robot and teleoperator configurations
-robot_config = LeKiwiClientConfig(remote_ip="172.18.134.136", id="lekiwi")
+robot_config = LeKiwiClientConfig(remote_ip="192.168.0.184", id="lekiwi")
 leader_arm_config = SO100LeaderConfig(port="/dev/tty.usbmodem585A0077581", id="my_awesome_leader_arm")
 keyboard_config = KeyboardTeleopConfig()
 
@@ -92,8 +92,8 @@ while recorded_episodes < NUM_EPISODES and not events["stop_recording"]:
     dataset.save_episode()
     recorded_episodes += 1
 
-# Upload to hub and clean up
-dataset.push_to_hub()
+# 数据已保存在本地，不上传到 HuggingFace Hub
+# dataset.push_to_hub()  # 如需上传，取消此行注释
 
 robot.disconnect()
 leader_arm.disconnect()
