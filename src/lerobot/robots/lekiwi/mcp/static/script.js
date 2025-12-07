@@ -371,6 +371,64 @@ function updateSliderValue(sliderId, value) {
     }
 }
 
+// 通过箭头按钮调整滑块值
+let sliderAdjustInterval = null;
+let sliderAdjustTimeout = null;
+
+function adjustSlider(sliderId, delta) {
+    const slider = document.getElementById(sliderId);
+    if (!slider) return;
+    
+    const min = parseFloat(slider.min);
+    const max = parseFloat(slider.max);
+    const currentValue = parseFloat(slider.value);
+    
+    // 计算新值并限制在范围内
+    let newValue = currentValue + delta;
+    newValue = Math.max(min, Math.min(max, newValue));
+    
+    // 更新滑块值
+    slider.value = newValue;
+    
+    // 更新显示值
+    updateSliderValue(sliderId, Math.round(newValue));
+    
+    // 获取关节名称并发送命令
+    const joint = slider.getAttribute('data-joint');
+    if (joint) {
+        currentArmPosition[joint] = newValue;
+        sendArmPosition(currentArmPosition);
+    }
+}
+
+// 开始持续调整滑块（按住按钮时）
+function startAdjustSlider(sliderId, delta) {
+    // 先立即执行一次
+    adjustSlider(sliderId, delta);
+    
+    // 清除之前的定时器
+    stopAdjustSlider();
+    
+    // 延迟200ms后开始持续调整（防止误触）
+    sliderAdjustTimeout = setTimeout(() => {
+        sliderAdjustInterval = setInterval(() => {
+            adjustSlider(sliderId, delta);
+        }, 80); // 每80ms调整一次
+    }, 200);
+}
+
+// 停止持续调整滑块（松开按钮时）
+function stopAdjustSlider() {
+    if (sliderAdjustTimeout) {
+        clearTimeout(sliderAdjustTimeout);
+        sliderAdjustTimeout = null;
+    }
+    if (sliderAdjustInterval) {
+        clearInterval(sliderAdjustInterval);
+        sliderAdjustInterval = null;
+    }
+}
+
 // 复位机械臂到初始位置
 function resetArmToHome() {
     const homePosition = {

@@ -104,7 +104,7 @@
                 <div id="front-camera-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80 backdrop-blur-sm z-10 transition-all duration-300">
                     <button onclick="enableFrontCamera()" class="group relative flex items-center justify-center w-16 h-16 rounded-full bg-tech-500 hover:bg-tech-400 text-white shadow-lg shadow-tech-500/30 transition-all active:scale-95">
                         <svg class="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                        <span class="absolute -bottom-8 text-xs font-mono text-gray-400 group-hover:text-white transition-colors whitespace-nowrap">开启前置视角(带宽不够，建议不要开启，造成卡顿)</span>
+                        <span class="absolute -bottom-8 text-xs font-mono text-gray-400 group-hover:text-white transition-colors whitespace-nowrap">开启前置视角</span>
                     </button>
                 </div>
 
@@ -192,29 +192,53 @@
                     <div class="space-y-4">
                         <div class="group">
                             <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">肩部水平</span><span id="shoulder-pan-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
-                            <input type="range" id="shoulder-pan" class="arm-slider" min="-60" max="60" value="0" step="1" data-joint="arm_shoulder_pan.pos">
+                            <div class="flex items-center gap-1">
+                                <button onmousedown="startAdjustSlider('shoulder-pan', -5)" onmouseup="stopAdjustSlider()" onmouseleave="stopAdjustSlider()" ontouchstart="startAdjustSlider('shoulder-pan', -5)" ontouchend="stopAdjustSlider()" class="slider-arrow-btn w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-gray-700 active:bg-tech-600 rounded text-gray-400 hover:text-white text-xs transition-all">◀</button>
+                                <input type="range" id="shoulder-pan" class="arm-slider flex-1" min="-60" max="60" value="0" step="1" data-joint="arm_shoulder_pan.pos">
+                                <button onmousedown="startAdjustSlider('shoulder-pan', 5)" onmouseup="stopAdjustSlider()" onmouseleave="stopAdjustSlider()" ontouchstart="startAdjustSlider('shoulder-pan', 5)" ontouchend="stopAdjustSlider()" class="slider-arrow-btn w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-gray-700 active:bg-tech-600 rounded text-gray-400 hover:text-white text-xs transition-all">▶</button>
+                            </div>
                         </div>
                         <div class="group">
                             <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">肩部垂直</span><span id="shoulder-lift-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
-                            <input type="range" id="shoulder-lift" class="arm-slider" min="-55" max="55" value="0" step="1" data-joint="arm_shoulder_lift.pos">
+                            <div class="flex items-center gap-1">
+                                <button onmousedown="startAdjustSlider('shoulder-lift', -5)" onmouseup="stopAdjustSlider()" onmouseleave="stopAdjustSlider()" ontouchstart="startAdjustSlider('shoulder-lift', -5)" ontouchend="stopAdjustSlider()" class="slider-arrow-btn w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-gray-700 active:bg-tech-600 rounded text-gray-400 hover:text-white text-xs transition-all">◀</button>
+                                <input type="range" id="shoulder-lift" class="arm-slider flex-1" min="-55" max="55" value="0" step="1" data-joint="arm_shoulder_lift.pos">
+                                <button onmousedown="startAdjustSlider('shoulder-lift', 5)" onmouseup="stopAdjustSlider()" onmouseleave="stopAdjustSlider()" ontouchstart="startAdjustSlider('shoulder-lift', 5)" ontouchend="stopAdjustSlider()" class="slider-arrow-btn w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-gray-700 active:bg-tech-600 rounded text-gray-400 hover:text-white text-xs transition-all">▶</button>
+                            </div>
                         </div>
                         <div class="group">
                             <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">肘关节</span><span id="elbow-flex-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
-                            <input type="range" id="elbow-flex" class="arm-slider" min="-50" max="50" value="0" step="1" data-joint="arm_elbow_flex.pos">
+                            <div class="flex items-center gap-1">
+                                <button onmousedown="startAdjustSlider('elbow-flex', -5)" onmouseup="stopAdjustSlider()" onmouseleave="stopAdjustSlider()" ontouchstart="startAdjustSlider('elbow-flex', -5)" ontouchend="stopAdjustSlider()" class="slider-arrow-btn w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-gray-700 active:bg-tech-600 rounded text-gray-400 hover:text-white text-xs transition-all">◀</button>
+                                <input type="range" id="elbow-flex" class="arm-slider flex-1" min="-50" max="50" value="0" step="1" data-joint="arm_elbow_flex.pos">
+                                <button onmousedown="startAdjustSlider('elbow-flex', 5)" onmouseup="stopAdjustSlider()" onmouseleave="stopAdjustSlider()" ontouchstart="startAdjustSlider('elbow-flex', 5)" ontouchend="stopAdjustSlider()" class="slider-arrow-btn w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-gray-700 active:bg-tech-600 rounded text-gray-400 hover:text-white text-xs transition-all">▶</button>
+                            </div>
                         </div>
                     </div>
                     <div class="space-y-4">
                         <div class="group">
                             <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">腕关节弯曲</span><span id="wrist-flex-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
-                            <input type="range" id="wrist-flex" class="arm-slider" min="-70" max="70" value="0" step="1" data-joint="arm_wrist_flex.pos">
+                            <div class="flex items-center gap-1">
+                                <button onmousedown="startAdjustSlider('wrist-flex', -5)" onmouseup="stopAdjustSlider()" onmouseleave="stopAdjustSlider()" ontouchstart="startAdjustSlider('wrist-flex', -5)" ontouchend="stopAdjustSlider()" class="slider-arrow-btn w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-gray-700 active:bg-tech-600 rounded text-gray-400 hover:text-white text-xs transition-all">◀</button>
+                                <input type="range" id="wrist-flex" class="arm-slider flex-1" min="-70" max="70" value="0" step="1" data-joint="arm_wrist_flex.pos">
+                                <button onmousedown="startAdjustSlider('wrist-flex', 5)" onmouseup="stopAdjustSlider()" onmouseleave="stopAdjustSlider()" ontouchstart="startAdjustSlider('wrist-flex', 5)" ontouchend="stopAdjustSlider()" class="slider-arrow-btn w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-gray-700 active:bg-tech-600 rounded text-gray-400 hover:text-white text-xs transition-all">▶</button>
+                            </div>
                         </div>
                         <div class="group">
                             <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">腕关节旋转</span><span id="wrist-roll-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
-                            <input type="range" id="wrist-roll" class="arm-slider" min="-70" max="70" value="0" step="1" data-joint="arm_wrist_roll.pos">
+                            <div class="flex items-center gap-1">
+                                <button onmousedown="startAdjustSlider('wrist-roll', -5)" onmouseup="stopAdjustSlider()" onmouseleave="stopAdjustSlider()" ontouchstart="startAdjustSlider('wrist-roll', -5)" ontouchend="stopAdjustSlider()" class="slider-arrow-btn w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-gray-700 active:bg-tech-600 rounded text-gray-400 hover:text-white text-xs transition-all">◀</button>
+                                <input type="range" id="wrist-roll" class="arm-slider flex-1" min="-70" max="70" value="0" step="1" data-joint="arm_wrist_roll.pos">
+                                <button onmousedown="startAdjustSlider('wrist-roll', 5)" onmouseup="stopAdjustSlider()" onmouseleave="stopAdjustSlider()" ontouchstart="startAdjustSlider('wrist-roll', 5)" ontouchend="stopAdjustSlider()" class="slider-arrow-btn w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-gray-700 active:bg-tech-600 rounded text-gray-400 hover:text-white text-xs transition-all">▶</button>
+                            </div>
                         </div>
                         <div class="group">
                             <div class="flex justify-between mb-1"><span class="text-[10px] text-gray-500 font-mono">夹爪</span><span id="gripper-value" class="text-[10px] text-tech-400 font-mono">0</span></div>
-                            <input type="range" id="gripper" class="arm-slider" min="0" max="60" value="0" step="1" data-joint="arm_gripper.pos">
+                            <div class="flex items-center gap-1">
+                                <button onmousedown="startAdjustSlider('gripper', -5)" onmouseup="stopAdjustSlider()" onmouseleave="stopAdjustSlider()" ontouchstart="startAdjustSlider('gripper', -5)" ontouchend="stopAdjustSlider()" class="slider-arrow-btn w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-gray-700 active:bg-tech-600 rounded text-gray-400 hover:text-white text-xs transition-all">◀</button>
+                                <input type="range" id="gripper" class="arm-slider flex-1" min="0" max="60" value="0" step="1" data-joint="arm_gripper.pos">
+                                <button onmousedown="startAdjustSlider('gripper', 5)" onmouseup="stopAdjustSlider()" onmouseleave="stopAdjustSlider()" ontouchstart="startAdjustSlider('gripper', 5)" ontouchend="stopAdjustSlider()" class="slider-arrow-btn w-6 h-6 flex items-center justify-center bg-gray-800 hover:bg-gray-700 active:bg-tech-600 rounded text-gray-400 hover:text-white text-xs transition-all">▶</button>
+                            </div>
                         </div>
                     </div>
                 </div>
