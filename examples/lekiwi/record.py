@@ -27,12 +27,12 @@ from lerobot.utils.control_utils import init_keyboard_listener
 from lerobot.utils.utils import log_say
 from lerobot.utils.visualization_utils import init_rerun
 
-NUM_EPISODES = 2
+NUM_EPISODES = 3
 FPS = 30
 EPISODE_TIME_SEC = 120
 RESET_TIME_SEC = 10
 TASK_DESCRIPTION = "My task description"
-HF_REPO_ID = "<hf_username>/<dataset_repo_id>"
+HF_REPO_ID = "lekiwi/test2"
 
 
 def main():
