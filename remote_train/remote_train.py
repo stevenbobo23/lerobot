@@ -22,9 +22,9 @@ training_logs = {}
 training_configs = {}
 
 # 目录配置
-UPLOAD_FOLDER = './data/upload_temp'
-DOWNLOAD_FOLDER = './data/output'
-DOWNLOAD_TEMP_FOLDER = './data/download_temp'
+UPLOAD_FOLDER = './gpufree-data/upload_temp'
+DOWNLOAD_FOLDER = './gpufree-data/model_output'
+DOWNLOAD_TEMP_FOLDER = './gpufree-data/download_temp'
 MAX_CONTENT_LENGTH = 10 * 1024 * 1024 * 1024
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
