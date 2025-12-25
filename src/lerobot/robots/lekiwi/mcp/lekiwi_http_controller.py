@@ -65,6 +65,10 @@ _stream_lock = threading.Lock()
 # 运动控制开关，默认关闭（监控模式）
 _movement_enabled = False
 
+# 速度控制（0.1 - 2.0 倍率，默认1.0）
+_speed_ratio = 1.0
+_speed_ratio_lock = threading.Lock()
+
 
 def convert_webrtc_to_rtmp(webrtc_url):
     """将 WebRTC URL 转换为 RTMP URL"""
@@ -531,6 +535,9 @@ def setup_routes():
         status = service.get_status()
         # 添加运动控制状态
         status['movement_enabled'] = _movement_enabled
+        # 添加速度倍率
+        with _speed_ratio_lock:
+            status['speed_ratio'] = _speed_ratio
         return jsonify(status)
 
     @app.route('/startmove', methods=['GET', 'POST'])
@@ -560,10 +567,59 @@ def setup_routes():
             "message": "运动控制已禁用"
         })
 
+    @app.route('/speed', methods=['GET', 'POST'])
+    def speed_control():
+        """获取或设置速度倍率"""
+        global _speed_ratio
+        
+        if request.method == 'GET':
+            with _speed_ratio_lock:
+                return jsonify({
+                    "success": True,
+                    "speed_ratio": _speed_ratio,
+                    "min": 0.1,
+                    "max": 2.0
+                })
+        
+        # POST: 设置速度倍率
+        try:
+            data = request.get_json()
+            if not data or 'speed_ratio' not in data:
+                return jsonify({
+                    "success": False,
+                    "message": "请提供 speed_ratio 参数"
+                }), 400
+            
+            new_ratio = float(data['speed_ratio'])
+            # 限制范围在 0.1 - 2.0
+            new_ratio = max(0.1, min(2.0, new_ratio))
+            
+            with _speed_ratio_lock:
+                _speed_ratio = new_ratio
+            
+            logger.info(f"速度倍率已设置为: {new_ratio}")
+            return jsonify({
+                "success": True,
+                "speed_ratio": new_ratio,
+                "message": f"速度倍率已设置为 {new_ratio:.1f}x"
+            })
+            
+        except ValueError as e:
+            return jsonify({
+                "success": False,
+                "message": f"无效的速度值: {e}"
+            }), 400
+        except Exception as e:
+            logger.error(f"设置速度倍率失败: {e}")
+            return jsonify({
+                "success": False,
+                "message": str(e)
+            }), 500
+
     @app.route('/control', methods=['POST'])
     def control_robot():
         """控制机器人移动"""
-        global _movement_enabled
+        global _movement_enabled, _speed_ratio
         
         # 检查运动控制是否启用
         if not _movement_enabled:
@@ -580,16 +636,45 @@ def setup_routes():
                     "message": "请求体不能为空"
                 })
 
-            # 处理预定义命令
+            # 处理预定义命令（应用速度倍率）
             if "command" in data:
+                command = data["command"]
                 duration = data.get("duration", 0)  # 获取持续时间参数
-                if duration > 0:
-                    # 有持续时间的移动
-                    result = service.move_robot_for_duration(data["command"], duration)
+                
+                # 获取当前速度倍率
+                with _speed_ratio_lock:
+                    current_ratio = _speed_ratio
+                
+                # 根据命令计算实际速度
+                base_linear = service.config.linear_speed
+                base_angular = service.config.angular_speed
+                
+                # 命令到速度的映射
+                velocity_map = {
+                    "forward": (base_linear * current_ratio, 0.0, 0.0),
+                    "backward": (-base_linear * current_ratio, 0.0, 0.0),
+                    "left": (0.0, base_linear * current_ratio, 0.0),
+                    "right": (0.0, -base_linear * current_ratio, 0.0),
+                    "rotate_left": (0.0, 0.0, base_angular * current_ratio),
+                    "rotate_right": (0.0, 0.0, -base_angular * current_ratio),
+                    "stop": (0.0, 0.0, 0.0)
+                }
+                
+                if command in velocity_map:
+                    x_vel, y_vel, theta_vel = velocity_map[command]
+                    if duration > 0:
+                        # 有持续时间的移动
+                        result = service.move_robot_with_custom_speed_for_duration(x_vel, y_vel, theta_vel, duration)
+                    else:
+                        # 无持续时间的移动
+                        result = service.execute_custom_velocity(x_vel, y_vel, theta_vel)
+                    result["speed_ratio"] = current_ratio
+                    return jsonify(result)
                 else:
-                    # 无持续时间的移动
-                    result = service.execute_predefined_command(data["command"])
-                return jsonify(result)
+                    return jsonify({
+                        "success": False,
+                        "message": f"未知命令: {command}"
+                    })
             
             # 处理机械臂位置控制
             elif any(key.endswith('.pos') for key in data.keys()):

@@ -1,3 +1,6 @@
+// 当前速度倍率
+let currentSpeedRatio = 1.0;
+
 function updateStatus() {
     fetch('/status')
         .then(response => response.json())
@@ -10,12 +13,88 @@ function updateStatus() {
                 statusDiv.textContent = '状态: 未连接 - 需要重启服务';
                 statusDiv.className = 'status disconnected';
             }
+            // 同步速度倍率
+            if (data.speed_ratio !== undefined) {
+                updateSpeedDisplay(data.speed_ratio);
+            }
         })
         .catch(error => {
             console.error('获取状态失败:', error);
             const statusDiv = document.getElementById('status');
             statusDiv.textContent = '状态: 连接错误 - 需要重启服务';
             statusDiv.className = 'status disconnected';
+        });
+}
+
+// 速度控制函数
+function updateSpeedDisplay(ratio) {
+    currentSpeedRatio = ratio;
+    const speedValue = document.getElementById('speed-value');
+    const speedSlider = document.getElementById('speed-slider');
+    if (speedValue) {
+        speedValue.textContent = ratio.toFixed(1);
+        // 根据速度值改变颜色
+        if (ratio < 0.5) {
+            speedValue.className = 'text-green-400 font-mono font-bold text-sm';
+        } else if (ratio > 1.5) {
+            speedValue.className = 'text-red-400 font-mono font-bold text-sm';
+        } else {
+            speedValue.className = 'text-tech-400 font-mono font-bold text-sm';
+        }
+    }
+    if (speedSlider) {
+        speedSlider.value = ratio;
+    }
+}
+
+function setSpeedRatio(ratio) {
+    // 限制范围
+    ratio = Math.max(0.1, Math.min(2.0, ratio));
+    ratio = Math.round(ratio * 10) / 10; // 保留一位小数
+    
+    fetch('/speed', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ speed_ratio: ratio })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateSpeedDisplay(data.speed_ratio);
+        } else {
+            console.error('设置速度失败:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('设置速度失败:', error);
+    });
+}
+
+function increaseSpeed() {
+    setSpeedRatio(currentSpeedRatio + 0.1);
+}
+
+function decreaseSpeed() {
+    setSpeedRatio(currentSpeedRatio - 0.1);
+}
+
+function updateSpeedFromSlider(value) {
+    setSpeedRatio(parseFloat(value));
+}
+
+// 初始化速度控制
+function initSpeedControl() {
+    fetch('/speed')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateSpeedDisplay(data.speed_ratio);
+            }
+        })
+        .catch(error => {
+            console.error('获取速度设置失败:', error);
         });
 }
 
@@ -742,8 +821,10 @@ document.addEventListener('DOMContentLoaded', () => {
     updateStatus();
     initArmSliders();
     initVideoStreams(); // 初始化视频流
+    initSpeedControl(); // 初始化速度控制
     console.log('LeKiwi HTTP Controller 已加载');
     console.log('键盘控制: W(前进) S(后退) A(左转) D(右转) Q(左旋转) E(右旋转) 空格(停止)');
+    console.log('速度控制: 使用 +/- 按钮或滑块调节移动速度 (0.1x - 2.0x)');
     console.log('机械臂控制: 使用滑块调节各关节位置');
     
     // 页面加载时自动执行复位
