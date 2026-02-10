@@ -258,7 +258,7 @@ UPLOAD_PAGE_HTML = '''
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LeRobot 训练平台</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://image.mycodebro.cn/css/tailwindcss-3.4.5.js"></script>
     <script>tailwind.config={darkMode:'class',theme:{extend:{colors:{d1:'#0d1117',d2:'#161b22',d3:'#21262d',border:'#30363d'}}}}</script>
     <style>body{font-family:ui-monospace,monospace}input[type=file]{display:none}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}</style>
 </head>
